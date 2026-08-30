@@ -5,11 +5,13 @@ import { ChevronDownIcon, FilterIcon, SearchIcon, SettingsIcon, XIcon } from 'lu
 import { useExtracted } from 'next-intl'
 import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
 
+import type { EventTranslationsInput } from '@/app/[locale]/admin/events/_actions/update-event-translations'
 import type { AdminEventRow } from '@/app/[locale]/admin/events/_hooks/useAdminEvents'
 import type {
   AdminEventsTableState,
   AdminEventsTableStatePatch,
 } from '@/app/[locale]/admin/events/_lib/admin-events-table-state'
+import type { NonDefaultLocale } from '@/i18n/locales'
 import type { AdminEventAttentionFilter } from '@/lib/admin-event-attention'
 import type { SportsSourceProvider } from '@/lib/sports-source/providers'
 import type { SportsSegmentScore } from '@/types'
@@ -19,6 +21,7 @@ import { updateEventAdditionalContextAction } from '@/app/[locale]/admin/events/
 import { updateEventLivestreamUrlAction } from '@/app/[locale]/admin/events/_actions/update-event-livestream-url'
 import { updateEventSportsFinalStateAction } from '@/app/[locale]/admin/events/_actions/update-event-sports-final-state'
 import { updateEventSyncSettingsAction } from '@/app/[locale]/admin/events/_actions/update-event-sync-settings'
+import { updateEventTranslationsAction } from '@/app/[locale]/admin/events/_actions/update-event-translations'
 import { updateEventVisibilityAction } from '@/app/[locale]/admin/events/_actions/update-event-visibility'
 import AdminResolutionReportsDialog from '@/app/[locale]/admin/events/_components/AdminResolutionReportsDialog'
 import { useAdminEventsColumns } from '@/app/[locale]/admin/events/_components/columns'
@@ -31,6 +34,7 @@ import {
 } from '@/app/[locale]/admin/events/_lib/admin-events-hide-crypto-preference'
 import { DEFAULT_ADMIN_EVENTS_TABLE_STATE } from '@/app/[locale]/admin/events/_lib/admin-events-table-state'
 import EventIconImage from '@/components/EventIconImage'
+import LocaleFlag from '@/components/LocaleFlag'
 import SportsMatchScoreboard from '@/components/SportsMatchScoreboard'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,6 +63,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toast'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { LOCALE_LABELS, NON_DEFAULT_LOCALES } from '@/i18n/locales'
 import { Link } from '@/i18n/navigation'
 import { resolveSportsSegmentNumbers } from '@/lib/sports-segment-score'
 import { resolveAutomaticSportsSourceCardCandidate } from '@/lib/sports-source/auto-selection'
@@ -406,6 +411,10 @@ function useAdminEventsTableState(
   } = useAdminEventsTable(tableState, onTableStateChange, hideCrypto)
 
   const [pendingHiddenId, setPendingHiddenId] = useState<string | null>(null)
+  const [translationEvent, setTranslationEvent] = useState<AdminEventRow | null>(null)
+  const [translationValues, setTranslationValues] = useState<EventTranslationsInput>({} as EventTranslationsInput)
+  const [translationError, setTranslationError] = useState<string | null>(null)
+  const [isSavingTranslations, setIsSavingTranslations] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [savedAutoDeployEnabled, setSavedAutoDeployEnabled] = useState(initialAutoDeployNewEventsEnabled)
   const [draftAutoDeployEnabled, setDraftAutoDeployEnabled] = useState(initialAutoDeployNewEventsEnabled)
@@ -478,6 +487,94 @@ function useAdminEventsTableState(
     },
     [queryClient, t],
   )
+
+  const handleOpenTranslations = useCallback(
+    (event: AdminEventRow) => {
+      if (isSavingTranslations) {
+        return
+      }
+
+      setTranslationEvent(event)
+      setTranslationError(null)
+      setIsSavingTranslations(false)
+      setTranslationValues(
+        NON_DEFAULT_LOCALES.reduce<EventTranslationsInput>((acc, locale) => {
+          acc[locale] = event.translations?.[locale] ?? ''
+          return acc
+        }, {} as EventTranslationsInput),
+      )
+    },
+    [isSavingTranslations],
+  )
+
+  const resetTranslationsDialog = useCallback(() => {
+    setTranslationEvent(null)
+    setTranslationValues({} as EventTranslationsInput)
+    setTranslationError(null)
+    setIsSavingTranslations(false)
+  }, [])
+
+  const closeTranslationsDialog = useCallback(() => {
+    if (isSavingTranslations) {
+      return
+    }
+
+    resetTranslationsDialog()
+  }, [isSavingTranslations, resetTranslationsDialog])
+
+  const handleTranslationChange = useCallback((locale: NonDefaultLocale, value: string) => {
+    setTranslationValues((previous) => ({
+      ...previous,
+      [locale]: value,
+    }))
+  }, [])
+
+  const handleSaveTranslations = useCallback(async () => {
+    if (!translationEvent) {
+      return
+    }
+
+    setIsSavingTranslations(true)
+    setTranslationError(null)
+
+    let result
+    try {
+      result = await updateEventTranslationsAction(translationEvent.id, translationValues)
+    } catch (error) {
+      console.error('Failed to update event translations', error)
+      setTranslationError(t('Failed to update event translations'))
+      setIsSavingTranslations(false)
+      return
+    }
+
+    if (result.success) {
+      queryClient.setQueriesData<{
+        data: AdminEventRow[]
+        totalCount: number
+        creatorOptions: string[]
+        seriesOptions: string[]
+      }>({ queryKey: ['admin-events'] }, (previous) => {
+        if (!previous) {
+          return previous
+        }
+
+        return {
+          ...previous,
+          data: previous.data.map((event) =>
+            event.id === translationEvent.id ? { ...event, translations: result.data ?? {} } : event,
+          ),
+        }
+      })
+
+      toast.success(t('Translations updated for {name}.', { name: translationEvent.title }))
+      void queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      resetTranslationsDialog()
+      return
+    }
+
+    setTranslationError(result.error ?? t('Failed to update event translations'))
+    setIsSavingTranslations(false)
+  }, [queryClient, resetTranslationsDialog, t, translationEvent, translationValues])
 
   const handleOpenSettings = useCallback(() => {
     setDraftAutoDeployEnabled(savedAutoDeployEnabled)
@@ -953,6 +1050,7 @@ function useAdminEventsTableState(
 
   const columns = useAdminEventsColumns({
     onToggleHidden: handleToggleHidden,
+    onOpenTranslations: handleOpenTranslations,
     onOpenAdditionalContextModal: handleOpenAdditionalContextModal,
     onOpenLivestreamModal: handleOpenLivestreamModal,
     onOpenResolutionReportsModal: handleOpenResolutionReportsModal,
@@ -985,6 +1083,14 @@ function useAdminEventsTableState(
     handleActiveOnlyChange,
     handlePageChange,
     handlePageSizeChange,
+    translationEvent,
+    translationValues,
+    translationError,
+    isSavingTranslations,
+    handleOpenTranslations,
+    closeTranslationsDialog,
+    handleTranslationChange,
+    handleSaveTranslations,
     settingsOpen,
     setSettingsOpen,
     draftAutoDeployEnabled,
@@ -1089,6 +1195,13 @@ export default function AdminEventsTable({
     handleActiveOnlyChange,
     handlePageChange,
     handlePageSizeChange,
+    translationEvent,
+    translationValues,
+    translationError,
+    isSavingTranslations,
+    closeTranslationsDialog,
+    handleTranslationChange,
+    handleSaveTranslations,
     settingsOpen,
     setSettingsOpen,
     draftAutoDeployEnabled,
@@ -1221,7 +1334,7 @@ export default function AdminEventsTable({
     <div className="flex items-center gap-2">
       <Switch id="admin-events-active-only" checked={activeOnly} onCheckedChange={handleActiveOnlyChange} />
       <Label htmlFor="admin-events-active-only" className="text-sm font-normal text-muted-foreground">
-        {t('Only active')}
+        {t('Active only')}
       </Label>
     </div>
   )
@@ -1274,7 +1387,7 @@ export default function AdminEventsTable({
         )}
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
-        <p className="max-w-full text-sm leading-snug font-medium break-words whitespace-normal text-foreground">
+        <p className="max-w-full text-sm leading-snug font-medium wrap-break-word whitespace-normal text-foreground">
           {sportsFinalEvent.title}
         </p>
         {sportsFinalGameDateLabel ? <p className="text-xs text-muted-foreground">{sportsFinalGameDateLabel}</p> : null}
@@ -1463,6 +1576,39 @@ export default function AdminEventsTable({
     </div>
   )
 
+  const translationFormFields = (
+    <div className="grid gap-4 py-2">
+      <div className="grid gap-2">
+        <Label htmlFor="event-translation-en" className="flex items-center gap-2">
+          <LocaleFlag locale="en" />
+          {t('English (source)')}
+        </Label>
+        <Input id="event-translation-en" value={translationEvent?.title ?? ''} readOnly disabled />
+      </div>
+
+      {NON_DEFAULT_LOCALES.map((locale) => {
+        const fieldId = `event-translation-${locale}`
+        return (
+          <div key={locale} className="grid gap-2">
+            <Label htmlFor={fieldId} className="flex items-center gap-2">
+              <LocaleFlag locale={locale} />
+              {LOCALE_LABELS[locale]}
+            </Label>
+            <Input
+              id={fieldId}
+              value={translationValues[locale] ?? ''}
+              onChange={(event) => handleTranslationChange(locale, event.target.value)}
+              placeholder={t('Translation for {locale}', { locale: LOCALE_LABELS[locale] })}
+              disabled={isSavingTranslations}
+            />
+          </div>
+        )
+      })}
+
+      {translationError && <InputError message={translationError} />}
+    </div>
+  )
+
   const sportsFinalFormFields = (
     <div className="grid gap-4 py-2">
       {sportsFinalTeams ? (
@@ -1573,7 +1719,7 @@ export default function AdminEventsTable({
                     </div>
                   )}
                 </div>
-                <span className="line-clamp-2 w-full text-xs leading-tight font-medium break-words sm:text-sm">
+                <span className="line-clamp-2 w-full text-xs leading-tight font-medium wrap-break-word sm:text-sm">
                   {sportsFinalTeams.home.name}
                 </span>
               </div>
@@ -1626,7 +1772,7 @@ export default function AdminEventsTable({
                     </div>
                   )}
                 </div>
-                <span className="line-clamp-2 w-full text-xs leading-tight font-medium break-words sm:text-sm">
+                <span className="line-clamp-2 w-full text-xs leading-tight font-medium wrap-break-word sm:text-sm">
                   {sportsFinalTeams.away.name}
                 </span>
               </div>
@@ -1802,7 +1948,6 @@ export default function AdminEventsTable({
         columns={columns}
         data={events}
         totalCount={totalCount}
-        searchPlaceholder={t('Search')}
         enableSelection={false}
         enablePagination
         enableColumnVisibility={false}
@@ -1843,11 +1988,95 @@ export default function AdminEventsTable({
             {settingsButton}
           </div>
         }
-        searchInputClassName="h-9 sm:w-37.5 lg:w-62.5"
-        searchLeadingIcon={<SearchIcon className="size-4" />}
       />
 
       <AdminResolutionReportsDialog event={resolutionReportsEvent} onClose={() => setResolutionReportsEvent(null)} />
+
+      {isMobile ? (
+        <Drawer
+          open={Boolean(translationEvent)}
+          onOpenChange={(open) => {
+            if (!open && !isSavingTranslations) {
+              closeTranslationsDialog()
+            }
+          }}
+        >
+          <DrawerContent className="max-h-[90dvh] w-full overflow-hidden bg-background px-4 pt-4 pb-6">
+            <form
+              className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSaveTranslations()
+              }}
+            >
+              <DrawerHeader className="mt-4 shrink-0 space-y-2 p-0 text-left">
+                <DrawerTitle>{t('Event translations')}</DrawerTitle>
+                <DrawerDescription>
+                  {t('Update non-English titles for this event. English remains the source title.')}
+                </DrawerDescription>
+              </DrawerHeader>
+
+              <div className="min-h-0 overflow-y-auto overscroll-contain pr-1">{translationFormFields}</div>
+
+              <DrawerFooter className="shrink-0 border-t p-0 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeTranslationsDialog}
+                  disabled={isSavingTranslations}
+                >
+                  {t('Cancel')}
+                </Button>
+                <Button type="submit" disabled={isSavingTranslations}>
+                  {isSavingTranslations ? t('Saving...') : t('Save')}
+                </Button>
+              </DrawerFooter>
+            </form>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog
+          open={Boolean(translationEvent)}
+          onOpenChange={(open) => {
+            if (!open && !isSavingTranslations) {
+              closeTranslationsDialog()
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90dvh] overflow-hidden p-0 sm:max-w-xl">
+            <form
+              className="grid max-h-[90dvh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleSaveTranslations()
+              }}
+            >
+              <DialogHeader className="px-6 pt-6">
+                <DialogTitle>{t('Event translations')}</DialogTitle>
+                <DialogDescription>
+                  {t('Update non-English titles for this event. English remains the source title.')}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="min-h-0 overflow-y-auto overscroll-contain px-6">{translationFormFields}</div>
+
+              <DialogFooter className="border-t px-6 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeTranslationsDialog}
+                  disabled={isSavingTranslations}
+                >
+                  {t('Cancel')}
+                </Button>
+                <Button type="submit" disabled={isSavingTranslations}>
+                  {isSavingTranslations ? t('Saving...') : t('Save')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {isMobile ? (
         <Drawer

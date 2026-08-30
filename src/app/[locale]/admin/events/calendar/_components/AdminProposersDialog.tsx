@@ -6,7 +6,7 @@ import type { Address, Hash, Hex } from 'viem'
 import { useAppKitAccount, useAppKitNetworkCore, useAppKitProvider } from '@reown/appkit/react'
 import { CheckCircle2Icon, CircleIcon, PlusIcon, UserCheckIcon, XIcon } from 'lucide-react'
 import { useExtracted } from 'next-intl'
-import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react'
+import { useCallback, useEffectEvent, useLayoutEffect, useMemo, useState } from 'react'
 import {
   createWalletClient,
   custom,
@@ -52,6 +52,7 @@ import {
 import { sendWithEstimatedFeeRetry } from '@/lib/transaction-fees'
 import { cn } from '@/lib/utils'
 import { defaultViemNetwork } from '@/lib/viem-network'
+import { isEmbeddedWalletProvider, isRpcWalletProvider, type RpcWalletProvider } from '@/lib/wallet/eoa-transaction'
 import { useUser } from '@/stores/useUser'
 
 import type { SignerOption } from './admin-create-event-form-types'
@@ -76,10 +77,6 @@ interface AdminProposersDialogShellProps {
 
 interface EventCreationSignersResponse {
   data?: SignerOption[]
-}
-
-interface RpcWalletProvider {
-  request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>
 }
 
 const SINGLETON_FACTORY_ADDRESS = '0xce0042B868300000d44A59004Da54A005ffdcf9f' as Address
@@ -113,32 +110,6 @@ const SINGLETON_FACTORY_ABI = [
     stateMutability: 'nonpayable',
   },
 ] as const
-
-function isRpcWalletProvider(value: unknown): value is RpcWalletProvider {
-  return Boolean(value) && typeof value === 'object' && typeof (value as { request?: unknown }).request === 'function'
-}
-
-function isEmbeddedWalletProvider(value: unknown): value is RpcWalletProvider {
-  if (!isRpcWalletProvider(value)) {
-    return false
-  }
-
-  const candidate = value as {
-    connectEmail?: unknown
-    connectSocial?: unknown
-    getEmail?: unknown
-    switchNetwork?: unknown
-    constructor?: { name?: string }
-  }
-
-  return (
-    candidate.constructor?.name === 'W3mFrameProvider' ||
-    (typeof candidate.connectEmail === 'function' &&
-      typeof candidate.connectSocial === 'function' &&
-      typeof candidate.getEmail === 'function' &&
-      typeof candidate.switchNetwork === 'function')
-  )
-}
 
 function resolveChainId(value: number | string | undefined) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -556,18 +527,16 @@ export default function AdminProposersDialog({
     await loadStatus(preferred, nextSigners)
   })
 
-  /* oxlint-disable react-you-might-not-need-an-effect/no-event-handler -- Opening the controlled dialog triggers an external API refresh. */
-  useEffect(
+  useLayoutEffect(
     function loadOnOpen() {
       if (!open) {
         return
       }
 
-      void bootstrapDialog()
+      queueMicrotask(() => void bootstrapDialog())
     },
     [open],
   )
-  /* oxlint-enable react-you-might-not-need-an-effect/no-event-handler */
 
   async function runServerMutation(action: 'create' | 'add' | 'remove', proposers: Address[]) {
     if (!selectedCreator) {

@@ -4,8 +4,6 @@ function formatUpOrDownPhrase(locale: SupportedLocale, subject: string) {
   switch (locale) {
     case 'ar':
       return `${subject} صعودًا أم هبوطًا`
-    case 'fa':
-      return `${subject} صعود یا نزول`
     case 'de':
       return `${subject} rauf oder runter`
     case 'es':
@@ -39,8 +37,6 @@ export function formatDatedUpOrDownTitle(locale: SupportedLocale, subject: strin
   switch (locale) {
     case 'ar':
       return `${subject} صعودًا أم هبوطًا في ${date}؟`
-    case 'fa':
-      return `${subject} در ${date} صعود یا نزول؟`
     case 'de':
       return `${subject} am ${date} rauf oder runter?`
     case 'es':
@@ -70,8 +66,6 @@ export function formatWeeklyUpOrDownTitle(locale: SupportedLocale, subject: stri
   switch (locale) {
     case 'ar':
       return `${subject} صعودًا أم هبوطًا هذا الأسبوع؟`
-    case 'fa':
-      return `${subject} این هفته صعود یا نزول؟`
     case 'de':
       return `${subject} diese Woche rauf oder runter?`
     case 'es':
@@ -98,7 +92,6 @@ export function formatWeeklyUpOrDownTitle(locale: SupportedLocale, subject: stri
 }
 
 export function formatTimedUpOrDownTitle(locale: SupportedLocale, subject: string, date: string, time: string) {
-  const separator =
-    locale === 'ar' || locale === 'fa' ? '، ' : locale === 'ja' || locale === 'ko' || locale === 'zh' ? ' ' : ', '
+  const separator = locale === 'ar' ? '، ' : locale === 'ja' || locale === 'ko' || locale === 'zh' ? ' ' : ', '
   return `${formatUpOrDownPhrase(locale, subject)} — ${date}${separator}${time} ET`
 }

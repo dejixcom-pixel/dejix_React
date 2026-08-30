@@ -34,6 +34,12 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_MODELS_API_URL = 'https://openrouter.ai/api/v1/models'
 const OPENROUTER_RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504])
 const OPENROUTER_WEB_SEARCH_PARAMETER = 'web_search_options'
+const inFlightOpenRouterModelInfo = new Map<string, Promise<OpenRouterModelInfo[]>>()
+
+function sanitizeOpenRouterTitle(value: string) {
+  const withoutDiacritics = value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+  return withoutDiacritics.replace(/[^\x20-\x7e]/g, '').trim()
+}
 
 interface RequestCompletionOptions {
   temperature?: number
@@ -56,8 +62,9 @@ async function buildOpenRouterHeaders(apiKey: string) {
   }
 
   const siteName = await loadRuntimeThemeSiteName()
-  if (siteName) {
-    headers['X-Title'] = siteName
+  const openRouterTitle = siteName ? sanitizeOpenRouterTitle(siteName) : ''
+  if (openRouterTitle) {
+    headers['X-OpenRouter-Title'] = openRouterTitle
   }
 
   return headers
@@ -142,11 +149,7 @@ function supportsOpenRouterWebSearch(model: OpenRouterModelInfo) {
   )
 }
 
-export async function fetchOpenRouterModels(apiKey: string): Promise<OpenRouterModelSummary[]> {
-  if (!apiKey) {
-    return []
-  }
-
+async function fetchOpenRouterModelInfoUncached(apiKey: string): Promise<OpenRouterModelInfo[]> {
   const headers = await buildOpenRouterHeaders(apiKey)
   let payload: OpenRouterModelsResponse | null = null
   let lastError: Error | null = null
@@ -191,22 +194,65 @@ export async function fetchOpenRouterModels(apiKey: string): Promise<OpenRouterM
     throw new Error('OpenRouter models request failed: empty response')
   }
 
-  const models = Array.isArray(payload.data) ? payload.data : []
+  return Array.isArray(payload.data) ? payload.data : []
+}
 
-  return models
-    .filter(supportsOpenRouterWebSearch)
-    .map<OpenRouterModelSummary>((model) => {
-      const contextLength =
-        typeof model.context_length === 'number'
-          ? model.context_length
-          : typeof model.context_window === 'number'
-            ? model.context_window
-            : undefined
-      return {
-        id: model.id,
-        name: model.name || model.id,
-        contextLength,
+function fetchOpenRouterModelInfo(apiKey: string): Promise<OpenRouterModelInfo[]> {
+  if (!apiKey) {
+    return Promise.resolve([])
+  }
+
+  const existingRequest = inFlightOpenRouterModelInfo.get(apiKey)
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const request = fetchOpenRouterModelInfoUncached(apiKey)
+  inFlightOpenRouterModelInfo.set(apiKey, request)
+
+  void request.then(
+    () => {
+      if (inFlightOpenRouterModelInfo.get(apiKey) === request) {
+        inFlightOpenRouterModelInfo.delete(apiKey)
       }
-    })
-    .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    () => {
+      if (inFlightOpenRouterModelInfo.get(apiKey) === request) {
+        inFlightOpenRouterModelInfo.delete(apiKey)
+      }
+    },
+  )
+
+  return request
+}
+
+function toOpenRouterModelSummary(model: OpenRouterModelInfo): OpenRouterModelSummary {
+  const contextLength =
+    typeof model.context_length === 'number'
+      ? model.context_length
+      : typeof model.context_window === 'number'
+        ? model.context_window
+        : undefined
+
+  return {
+    id: model.id,
+    name: model.name || model.id,
+    contextLength,
+  }
+}
+
+function sortOpenRouterModels(models: OpenRouterModelSummary[]) {
+  return models.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function fetchOpenRouterModels(apiKey: string): Promise<OpenRouterModelSummary[]> {
+  const models = await fetchOpenRouterModelInfo(apiKey)
+
+  return sortOpenRouterModels(models.filter(supportsOpenRouterWebSearch).map(toOpenRouterModelSummary))
+}
+
+export async function fetchAllOpenRouterModels(apiKey: string): Promise<OpenRouterModelSummary[]> {
+  const models = await fetchOpenRouterModelInfo(apiKey)
+
+  return sortOpenRouterModels(models.map(toOpenRouterModelSummary))
 }

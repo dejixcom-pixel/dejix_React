@@ -5,12 +5,15 @@ import type { SupportedLocale } from '@/i18n/locales'
 import type {
   Comment,
   Event,
+  EventLiveChartConfig,
+  EventSeriesEntry,
   HomeFeaturedCardKind,
   HomeFeaturedContextItem,
   HomeFeaturedContextMode,
   HomeFeaturedEventCard,
   HomeFeaturedHotTopic,
   HomeFeaturedOutcomeSummary,
+  HomeFeaturedRolloverEvent,
   HomeFeaturedSideCardSettings,
   HomeFeaturedSportsMarketGroup,
   Market,
@@ -29,6 +32,7 @@ import { db } from '@/lib/drizzle'
 import { buildPublicEventListVisibilityCondition } from '@/lib/event-visibility'
 import { resolveEventPagePath } from '@/lib/events-routing'
 import { formatDollarValueLabel } from '@/lib/formatters'
+import { findNextHomeFeaturedSeriesEvent } from '@/lib/home-featured-rollover'
 import { getHomeFeaturedSettingsFromSettings } from '@/lib/home-featured-settings'
 import { HOME_INITIAL_EVENTS_CACHE_LIFE } from '@/lib/home-initial-events-cache'
 import { resolveDisplayPrice } from '@/lib/market-chance'
@@ -45,6 +49,12 @@ const CONTEXT_ITEM_TTL_MS = 30 * 60 * 1000
 const FEATURED_HOT_TOPICS_TARGET_COUNT = 5
 const FEATURED_HOT_TOPICS_RECENT_RESOLVED_WINDOW_MS = 36 * 60 * 60 * 1000
 const FEATURED_HOT_TOPICS_FALLBACK_RESOLVED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+interface HomeFeaturedLiveSeriesData {
+  config: EventLiveChartConfig | null
+  seriesEvents: EventSeriesEntry[]
+  nextEvent: HomeFeaturedRolloverEvent | null
+}
 
 function isNegRiskEvent(event: Event) {
   return Boolean(event.neg_risk || event.enable_neg_risk || event.neg_risk_augmented || event.neg_risk_market_id)
@@ -310,6 +320,74 @@ async function loadHomeFeaturedLiveChartConfig(seriesSlug: string) {
   cacheTag(cacheTags.eventsList, cacheTags.homeFeaturedEvents)
 
   return EventRepository.getLiveChartConfigBySeriesSlug(seriesSlug)
+}
+
+async function loadHomeFeaturedSeriesEvents(seriesSlug: string) {
+  'use cache'
+  cacheLife(HOME_INITIAL_EVENTS_CACHE_LIFE)
+  cacheTag(cacheTags.eventsList, cacheTags.homeFeaturedEvents)
+
+  return EventRepository.getSeriesEventsBySeriesSlug(seriesSlug)
+}
+
+function buildHomeFeaturedRolloverEvent(event: Event, locale: SupportedLocale): HomeFeaturedRolloverEvent {
+  const kind = resolveCardKind(event)
+  const temporal = resolveTemporalStatus(event, locale)
+
+  return {
+    event,
+    kind,
+    primaryMarkets: buildPrimaryMarkets(event, kind),
+    topOutcomes: buildTopOutcomes(event, kind),
+    resolvedEventId: event.id,
+    temporalStatus: temporal.temporalStatus,
+    temporalLabel: temporal.temporalLabel,
+    sportsMarketGroups: kind === 'sports' ? buildSportsMarketGroups(event) : [],
+  }
+}
+
+export async function getNextHomeFeaturedSeriesRolloverEvent(
+  currentEventSlug: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
+  const { data: currentEvent, error: currentEventError } = await EventRepository.getEventBySlug(
+    currentEventSlug,
+    '',
+    locale,
+  )
+  if (currentEventError) {
+    throw currentEventError
+  }
+  if (!currentEvent?.series_slug) {
+    return null
+  }
+
+  const { data: seriesEvents, error: seriesEventsError } = await EventRepository.getSeriesEventsBySeriesSlug(
+    currentEvent.series_slug,
+  )
+  if (seriesEventsError) {
+    throw seriesEventsError
+  }
+
+  const nextSeriesEntry = findNextHomeFeaturedSeriesEvent(seriesEvents ?? [], currentEvent, Date.now())
+  if (!nextSeriesEntry) {
+    return null
+  }
+
+  const { data: nextEvent, error: nextEventError } = await EventRepository.getEventBySlug(
+    nextSeriesEntry.slug,
+    '',
+    locale,
+  )
+  if (nextEventError) {
+    throw nextEventError
+  }
+  if (!nextEvent) {
+    return null
+  }
+
+  const resolvedNextEvent = await resolveFeaturedSportsEventPayload(nextEvent, locale)
+  return buildHomeFeaturedRolloverEvent(resolvedNextEvent, locale)
 }
 
 async function loadHomeFeaturedContextItems(
@@ -811,22 +889,38 @@ export async function listHomeFeaturedEvents(
     )
     return []
   }
-  const liveChartConfigEntries = await Promise.all(
-    resolvedEvents.map(async ({ event }) => {
-      if (!event.series_slug) {
-        return [event.id, null] as const
+  const liveSeriesEntries: Array<readonly [string, HomeFeaturedLiveSeriesData]> = await Promise.all(
+    resolvedEvents.map(async ({ event, target }) => {
+      if (target.targetType !== 'series' || !event.series_slug) {
+        return [event.id, { config: null, seriesEvents: [], nextEvent: null }] as const
       }
 
-      const result = await loadHomeFeaturedLiveChartConfig(event.series_slug)
-      if (result.error) {
-        console.warn('Failed to load featured event live chart config:', result.error)
-        return [event.id, null] as const
+      const [configResult, seriesEventsResult] = await Promise.all([
+        loadHomeFeaturedLiveChartConfig(event.series_slug),
+        loadHomeFeaturedSeriesEvents(event.series_slug),
+      ])
+      if (configResult.error) {
+        console.warn('Failed to load featured event live chart config:', configResult.error)
+      }
+      if (seriesEventsResult.error) {
+        console.warn('Failed to load featured event series:', seriesEventsResult.error)
       }
 
-      return [event.id, result.data ?? null] as const
+      const seriesEvents = seriesEventsResult.data ?? []
+      const nextSeriesEntry = findNextHomeFeaturedSeriesEvent(seriesEvents, event)
+      const nextEvent = nextSeriesEntry ? await loadHomeFeaturedEvent(nextSeriesEntry.slug, locale) : null
+
+      return [
+        event.id,
+        {
+          config: configResult.data ?? null,
+          seriesEvents,
+          nextEvent: nextEvent ? buildHomeFeaturedRolloverEvent(nextEvent, locale) : null,
+        },
+      ] as const
     }),
   )
-  const liveChartConfigByEventId = new Map(liveChartConfigEntries)
+  const liveSeriesByEventId = new Map(liveSeriesEntries)
 
   const contextResult = await loadHomeFeaturedContextItems(
     resolvedEvents.map((entry) => entry.target.featuredId),
@@ -852,6 +946,7 @@ export async function listHomeFeaturedEvents(
     const newsItems = newsItemsByFeaturedId.get(target.featuredId) ?? []
     const commentResult = commentsByEventSlug.get(event.slug) ?? { hasEnoughSeriesComments: false, items: [] }
     const temporal = resolveTemporalStatus(event, locale)
+    const liveSeries = liveSeriesByEventId.get(event.id)
 
     return {
       featuredId: target.featuredId,
@@ -878,7 +973,9 @@ export async function listHomeFeaturedEvents(
       temporalStatus: temporal.temporalStatus,
       temporalLabel: temporal.temporalLabel,
       sportsMarketGroups: kind === 'sports' ? buildSportsMarketGroups(event) : [],
-      liveChartConfig: liveChartConfigByEventId.get(event.id) ?? null,
+      liveChartConfig: liveSeries?.config ?? null,
+      seriesEvents: liveSeries?.seriesEvents ?? [],
+      nextSeriesEvent: liveSeries?.nextEvent ?? null,
     }
   })
 }

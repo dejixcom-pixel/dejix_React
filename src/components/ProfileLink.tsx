@@ -69,7 +69,7 @@ function useProfileTooltipStats(user: ProfileLinkProps['user']) {
         signal,
       }),
     enabled: shouldLoad && Boolean(normalizedStatsAddress && dataUrl && userPnlUrl),
-    staleTime: 5 * 60 * 1_000,
+    staleTime: 2_000,
     gcTime: 15 * 60 * 1_000,
     retry: 1,
   })
@@ -296,6 +296,7 @@ export default function ProfileLink({
             avatarSeed,
             href: profileHref,
             joinedAt,
+            tradingWallet: addressSlug,
           }}
           stats={tooltipStats}
           isLoading={isTooltipLoading}

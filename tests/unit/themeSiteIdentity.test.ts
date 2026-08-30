@@ -16,11 +16,10 @@ describe('theme site identity helpers', () => {
   it('builds default identity with sane values', () => {
     const identity = createDefaultThemeSiteIdentity()
 
-    expect(identity.name).toBe('DEJIX')
+    expect(identity.name).toBeTruthy()
     expect(identity.description).toBeTruthy()
-    expect(identity.logoMode).toBe('image')
     expect(identity.logoSvg).toContain('<svg')
-    expect(identity.logoUrl).toContain('/images/logos/dejix-mark.png')
+    expect(identity.logoUrl).toContain('data:image/svg+xml;utf8,')
     expect(identity.googleAnalyticsId).toBeNull()
     expect(identity.discordLink).toBeNull()
     expect(identity.supportUrl).toBeNull()

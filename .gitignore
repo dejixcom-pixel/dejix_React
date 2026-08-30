@@ -61,7 +61,3 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 docs2
-
-# local tooling caches
-.tools/
-CLAUDE.md

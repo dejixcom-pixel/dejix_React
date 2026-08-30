@@ -128,7 +128,7 @@ describe('structuredData', () => {
       'https://linkedin.com/company/kuest',
       'https://youtube.com/@kuest',
     ])
-    expect(structuredData.organization.logo).toBe('https://kuest.example/images/logos/dejix-mark.png')
+    expect(structuredData.organization.logo).toBe('https://kuest.example/images/pwa/default-icon-512.png')
     expect(structuredData.website.publisher).toEqual({ '@id': 'https://kuest.example#organization' })
   })
 

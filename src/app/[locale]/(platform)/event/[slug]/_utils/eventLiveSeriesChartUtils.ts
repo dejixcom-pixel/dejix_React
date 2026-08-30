@@ -9,6 +9,7 @@ export const SERIES_KEY = 'live_price'
 export const LIVE_WINDOW_MS = 40 * 1000
 const LIVE_HISTORY_BUFFER_MS = 8 * 1000
 export const LIVE_DATA_RETENTION_MS = LIVE_WINDOW_MS + LIVE_HISTORY_BUFFER_MS
+export const LIVE_IDLE_RECOVERY_DISPLAY_MS = 1_250
 export const LIVE_CLOCK_FRAME_MS = 1000 / 30
 export const LIVE_X_AXIS_STEP_MS = 10 * 1000
 export const LIVE_X_AXIS_RIGHT_INSET = 84
@@ -33,6 +34,153 @@ export interface PersistedLivePrice {
   timestamp: number
 }
 
+export interface LiveSeriesPriceHistoryPoint {
+  timestamp_ms: number
+  price: number
+}
+
+export function buildLiveSeriesFallbackData(
+  price: number | null,
+  chartEndTimestamp: number,
+  windowMs = LIVE_WINDOW_MS,
+) {
+  if (price == null || !Number.isFinite(price) || price <= 0 || !Number.isFinite(chartEndTimestamp)) {
+    return []
+  }
+
+  const domainEnd = Math.max(0, chartEndTimestamp)
+  const resolvedWindowMs = Number.isFinite(windowMs) && windowMs > 0 ? windowMs : LIVE_WINDOW_MS
+  const domainStart = Math.max(0, domainEnd - resolvedWindowMs)
+
+  return [
+    {
+      date: new Date(domainStart),
+      [SERIES_KEY]: price,
+    },
+    {
+      date: new Date(domainEnd),
+      [SERIES_KEY]: price,
+    },
+  ] satisfies DataPoint[]
+}
+
+export function buildLiveSeriesIdleResetData(price: number | null, chartEndTimestamp: number) {
+  return buildLiveSeriesFallbackData(price, chartEndTimestamp, LIVE_WINDOW_MS)
+}
+
+export function shouldResetLiveSeriesAfterIdle(
+  previousArrivalTimestamp: number | null,
+  currentArrivalTimestamp: number,
+  thresholdMs = LIVE_DATA_RETENTION_MS,
+) {
+  if (
+    previousArrivalTimestamp == null ||
+    !Number.isFinite(previousArrivalTimestamp) ||
+    !Number.isFinite(currentArrivalTimestamp) ||
+    !Number.isFinite(thresholdMs) ||
+    thresholdMs <= 0
+  ) {
+    return false
+  }
+
+  return currentArrivalTimestamp - previousArrivalTimestamp >= thresholdMs
+}
+
+export function resolveLiveSeriesIdleRecoverySpan(previousPrice: number | null, currentPrice: number | null) {
+  if (
+    previousPrice == null ||
+    currentPrice == null ||
+    !Number.isFinite(previousPrice) ||
+    !Number.isFinite(currentPrice) ||
+    previousPrice <= 0 ||
+    currentPrice <= 0
+  ) {
+    return null
+  }
+
+  const span = Math.abs(currentPrice - previousPrice)
+  return span > 0 ? span : null
+}
+
+export function resolveLiveChartPaddedDomainEnd({
+  startTimestamp,
+  endTimestamp,
+  chartWidth,
+  marginLeft,
+  marginRight,
+  rightInset,
+  dataEndRatio,
+}: {
+  startTimestamp: number
+  endTimestamp: number
+  chartWidth: number
+  marginLeft: number
+  marginRight: number
+  rightInset: number
+  dataEndRatio?: number
+}) {
+  const duration = Math.max(1, endTimestamp - startTimestamp)
+  const plotWidth = Math.max(1, chartWidth - marginLeft - marginRight)
+
+  if (dataEndRatio != null && Number.isFinite(dataEndRatio) && dataEndRatio > 0 && dataEndRatio <= 1) {
+    return startTimestamp + duration / dataEndRatio
+  }
+
+  const visibleWidth = Math.max(1, plotWidth - Math.max(0, rightInset))
+
+  return startTimestamp + (duration * plotWidth) / visibleWidth
+}
+
+export function buildClosedLiveSeriesData({
+  startTimestamp,
+  endTimestamp,
+  openingPrice,
+  closingPrice,
+  history,
+}: {
+  startTimestamp: number
+  endTimestamp: number
+  openingPrice: number | null
+  closingPrice: number | null
+  history: LiveSeriesPriceHistoryPoint[]
+}) {
+  if (!Number.isFinite(startTimestamp) || !Number.isFinite(endTimestamp) || startTimestamp >= endTimestamp) {
+    return []
+  }
+
+  const pointsByTimestamp = new Map<number, number>()
+
+  for (const point of history) {
+    if (
+      Number.isFinite(point.timestamp_ms) &&
+      point.timestamp_ms > startTimestamp &&
+      point.timestamp_ms < endTimestamp &&
+      Number.isFinite(point.price) &&
+      point.price > 0
+    ) {
+      pointsByTimestamp.set(point.timestamp_ms, point.price)
+    }
+  }
+
+  const resolvedOpeningPrice =
+    openingPrice != null && Number.isFinite(openingPrice) && openingPrice > 0 ? openingPrice : closingPrice
+  if (resolvedOpeningPrice != null && Number.isFinite(resolvedOpeningPrice) && resolvedOpeningPrice > 0) {
+    pointsByTimestamp.set(startTimestamp, resolvedOpeningPrice)
+  }
+
+  if (closingPrice != null && Number.isFinite(closingPrice) && closingPrice > 0) {
+    pointsByTimestamp.set(endTimestamp, closingPrice)
+  }
+
+  return Array.from(pointsByTimestamp.entries())
+    .sort(([leftTimestamp], [rightTimestamp]) => leftTimestamp - rightTimestamp)
+    .map(([timestamp, price]) => ({
+      date: new Date(timestamp),
+      [SERIES_KEY]: price,
+    }))
+    .slice(-MAX_POINTS) satisfies DataPoint[]
+}
+
 export interface LiveSeriesPriceSnapshot {
   series_slug: string
   instrument: string
@@ -46,6 +194,7 @@ export interface LiveSeriesPriceSnapshot {
   latest_price: number | null
   latest_window_end_ms: number | null
   latest_source_timestamp_ms: number | null
+  price_history?: LiveSeriesPriceHistoryPoint[]
   is_event_closed: boolean
 }
 

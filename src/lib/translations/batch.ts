@@ -43,7 +43,6 @@ const DATE_FORMATTER_LOCALES: Record<NonDefaultLocale, string> = {
   ar: 'ar-u-nu-latn',
   de: 'de',
   es: 'es',
-  fa: 'fa-u-nu-latn',
   fr: 'fr',
   it: 'it',
   ja: 'ja',
@@ -55,7 +54,7 @@ const DATE_FORMATTER_LOCALES: Record<NonDefaultLocale, string> = {
 }
 const dateFormatters = new Map<string, Intl.DateTimeFormat>()
 const TRANSLATION_SCRIPT_RULES: TranslationScriptRule[] = [
-  { allowedLocales: ['ar', 'fa'], label: 'Arabic', pattern: /\p{Script=Arabic}/u },
+  { allowedLocales: ['ar'], label: 'Arabic', pattern: /\p{Script=Arabic}/u },
   { allowedLocales: ['ru'], label: 'Cyrillic', pattern: /\p{Script=Cyrillic}/u },
   { allowedLocales: ['ko'], label: 'Hangul', pattern: /\p{Script=Hangul}/u },
   { allowedLocales: ['ja'], label: 'Japanese kana', pattern: /[\p{Script=Hiragana}\p{Script=Katakana}]/u },

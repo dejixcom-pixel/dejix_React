@@ -6,17 +6,7 @@ import { ChevronLeftIcon, ChevronRightIcon, FlameIcon } from 'lucide-react'
 import { useExtracted, useLocale } from 'next-intl'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import {
-  addTransitionType,
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  ViewTransition,
-} from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import type {
   LinePickerMarketType,
@@ -28,6 +18,7 @@ import type {
   HomeFeaturedEventCard,
   HomeFeaturedHotTopic,
   HomeFeaturedOutcomeSummary,
+  HomeFeaturedRolloverEvent,
   HomeFeaturedSideCardSettings,
   Market,
 } from '@/types'
@@ -59,6 +50,7 @@ import { ensureReadableTextColorOnDark } from '@/lib/color-contrast'
 import { resolveCryptoCadenceEventPresentation } from '@/lib/crypto-cadence-event'
 import { resolveEventOutcomePath, resolveEventPagePath } from '@/lib/events-routing'
 import { formatDollarValueLabel, formatVolume } from '@/lib/formatters'
+import { isHomeFeaturedEventEnded, resolveHomeFeaturedEventEndTimestamp } from '@/lib/home-featured-rollover'
 import { resolveHomeFeaturedSportsScoreboardContent } from '@/lib/home-featured-sports-score'
 import { resolveSportsTeamFallbackClassName } from '@/lib/sports-team-colors'
 import {
@@ -78,29 +70,113 @@ interface HomeFeaturedEventsCarouselProps {
 const HOME_FEATURED_CHART_HEIGHT = 292
 const HOME_FEATURED_CHART_HEIGHT_OFFSET = 20
 const HOME_FEATURED_LIVE_CHART_WIDTH_OFFSET = 24
-const HOME_FEATURED_NAVIGATION_TYPE = 'home-featured-navigation'
-const HOME_FEATURED_NAVIGATION_UPDATE = {
-  [HOME_FEATURED_NAVIGATION_TYPE]: 'auto' as const,
-  default: 'none' as const,
-}
+const HOME_FEATURED_ROLLOVER_RETRY_MS = 5_000
+const HOME_FEATURED_ROLLOVER_MAX_RETRIES = 6
+const HOME_FEATURED_ROLLOVER_MAX_RETRY_DELAY_MS = 60_000
 const FEATURED_SPORTS_BUTTON_DARK_TEXT_VAR = '--featured-sports-button-dark-text'
 
-function skipHomeFeaturedNavigationTransition() {
-  const activeTransition = document.activeViewTransition
-  if (!activeTransition) {
-    return
+interface FeaturedViewportStore {
+  getServerSnapshot: () => boolean
+  getSnapshot: () => boolean
+  setNode: (node: HTMLElement | null) => void
+  subscribe: (listener: () => void) => () => void
+}
+
+function createFeaturedViewportStore(): FeaturedViewportStore {
+  let node: HTMLElement | null = null
+  let snapshot = false
+  let observer: IntersectionObserver | null = null
+  let mediaQuery: MediaQueryList | null = null
+  const listeners = new Set<() => void>()
+
+  function notify() {
+    listeners.forEach((listener) => listener())
   }
 
-  let isHomeFeaturedNavigation = false
-  activeTransition.types?.forEach((type) => {
-    if (type === HOME_FEATURED_NAVIGATION_TYPE) {
-      isHomeFeaturedNavigation = true
+  function setSnapshot(nextSnapshot: boolean) {
+    if (snapshot === nextSnapshot) {
+      return
     }
-  })
 
-  if (isHomeFeaturedNavigation) {
-    activeTransition.skipTransition()
+    snapshot = nextSnapshot
+    notify()
   }
+
+  function disconnect() {
+    observer?.disconnect()
+    observer = null
+    mediaQuery?.removeEventListener('change', observe)
+    mediaQuery = null
+  }
+
+  function observe() {
+    disconnect()
+
+    if (!node || typeof window === 'undefined') {
+      setSnapshot(false)
+      return
+    }
+
+    mediaQuery = window.matchMedia?.('(min-width: 768px)') ?? null
+    if (mediaQuery && !mediaQuery.matches) {
+      setSnapshot(false)
+      mediaQuery.addEventListener('change', observe)
+      return
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setSnapshot(true)
+      mediaQuery?.addEventListener('change', observe)
+      return
+    }
+
+    setSnapshot(false)
+    observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) {
+          return
+        }
+
+        setSnapshot(true)
+        observer?.disconnect()
+        observer = null
+      },
+      { rootMargin: '480px 0px' },
+    )
+    observer.observe(node)
+    mediaQuery?.addEventListener('change', observe)
+  }
+
+  function subscribe(listener: () => void) {
+    listeners.add(listener)
+    if (listeners.size === 1) {
+      observe()
+    }
+
+    return function unsubscribe() {
+      listeners.delete(listener)
+      if (listeners.size === 0) {
+        disconnect()
+      }
+    }
+  }
+
+  function setNode(nextNode: HTMLElement | null) {
+    node = nextNode
+    if (listeners.size > 0) {
+      observe()
+    }
+  }
+
+  function getSnapshot() {
+    return snapshot
+  }
+
+  function getServerSnapshot() {
+    return false
+  }
+
+  return { getServerSnapshot, getSnapshot, setNode, subscribe }
 }
 
 type FeaturedSportsButtonTone = 'home' | 'away' | 'draw' | 'neutral'
@@ -121,6 +197,10 @@ const HomeEventLiveSeriesChart = dynamic(
   () => import('@/app/[locale]/(platform)/event/[slug]/_components/EventLiveSeriesChart'),
   { ssr: false, loading: () => <div className="min-h-60 w-full md:min-h-[260px] lg:min-h-[280px]" /> },
 )
+
+function preloadFeaturedChunk(loader: () => Promise<unknown>) {
+  void loader().catch(() => undefined)
+}
 
 function useElementWidth<T extends HTMLElement>(enabled = true) {
   const [element, setElement] = useState<T | null>(null)
@@ -201,6 +281,17 @@ function isNegativeOutcomeLabel(label: string) {
   return /\b(?:no|down|below|lower|under)\b/.test(normalized)
 }
 
+function shouldUseLiveFeaturedOutcomeColors(item: HomeFeaturedEventCard) {
+  if (!item.liveChartConfig || !shouldUseLiveSeriesChart(item.event, item.liveChartConfig)) {
+    return false
+  }
+
+  const [upOutcome, downOutcome] = item.topOutcomes
+  return Boolean(
+    upOutcome && downOutcome && !isNegativeOutcomeLabel(upOutcome.label) && isNegativeOutcomeLabel(downOutcome.label),
+  )
+}
+
 function resolveNeutralSportsButtonAppearance() {
   return {
     className: `
@@ -275,6 +366,43 @@ function resolveSportsButtonAppearance(market: FeaturedSportsButtonMarket) {
     backgroundClassName: resolveSportsTeamFallbackClassName(market.tone === 'home' ? 'team1' : 'team2'),
     backgroundStyle: undefined,
   }
+}
+
+function resolveLiveFeaturedOutcomeAppearance(item: HomeFeaturedEventCard, index: number) {
+  if (!shouldUseLiveFeaturedOutcomeColors(item)) {
+    return null
+  }
+
+  if (index === 0) {
+    const color = item.liveChartConfig?.line_color?.trim()
+    if (!color) {
+      return null
+    }
+
+    const appearance = resolveSportsButtonAppearance({
+      key: 'featured-live-up',
+      conditionId: '',
+      label: 'Up',
+      tone: 'home',
+      color,
+    })
+
+    return {
+      ...appearance,
+      className: `!border-0 ${appearance.className}`,
+    }
+  }
+
+  if (index === 1) {
+    return {
+      className: '!border-0 !bg-secondary/75 text-muted-foreground hover:!bg-[#7A828C] hover:!text-foreground',
+      style: undefined,
+      backgroundClassName: undefined,
+      backgroundStyle: undefined,
+    }
+  }
+
+  return null
 }
 
 function toTitleCase(value: string) {
@@ -524,22 +652,41 @@ function StandardActions({
     return null
   }
 
+  const shouldUseLiveOutcomeColors = shouldUseLiveFeaturedOutcomeColors(item)
+
   return (
     <div className={cn('grid gap-2', stacked ? 'grid-cols-1' : 'grid-cols-2')}>
       {outcomes.slice(0, 2).map((outcome, index) => {
         const isNegative = isNegativeOutcomeLabel(outcome.label) || index === 1
+        const liveOutcomeAppearance = resolveLiveFeaturedOutcomeAppearance(item, index)
 
         return (
           <Button
-            key={outcome.key}
-            variant={isNegative ? 'no' : 'yes'}
+            key={`featured-action-${index}`}
+            variant={liveOutcomeAppearance ? 'outline' : isNegative ? 'no' : 'yes'}
             className={cn(
               `inline-flex h-16 min-w-0 items-center justify-center rounded-lg px-4 text-center text-base font-semibold transition duration-150 active:scale-[98%] md:h-14 md:px-4 md:text-base`,
+              shouldUseLiveOutcomeColors && 'shadow-none',
+              shouldUseLiveOutcomeColors && 'uppercase',
+              liveOutcomeAppearance?.className,
             )}
+            style={liveOutcomeAppearance?.style}
             nativeButton={false}
             render={
-              <Link href={resolveFeaturedOutcomeHref(item.event, outcome, linkedHref)}>
-                <span className="truncate">{outcome.label}</span>
+              <Link
+                href={resolveFeaturedOutcomeHref(item.event, outcome, linkedHref)}
+                className="relative inline-flex size-full items-center justify-center"
+              >
+                {liveOutcomeAppearance?.backgroundClassName || liveOutcomeAppearance?.backgroundStyle ? (
+                  <span
+                    className={cn(
+                      'pointer-events-none absolute inset-0 z-0 rounded-lg opacity-[0.15] transition-opacity group-hover/team-button:opacity-100',
+                      liveOutcomeAppearance.backgroundClassName,
+                    )}
+                    style={liveOutcomeAppearance.backgroundStyle}
+                  />
+                ) : null}
+                <span className="relative z-1 truncate">{outcome.label}</span>
               </Link>
             }
           />
@@ -1769,22 +1916,195 @@ function FeaturedRightRailAction() {
   )
 }
 
+interface HomeFeaturedRolloverQueueState {
+  activeIndex: number
+  events: HomeFeaturedRolloverEvent[]
+}
+
+function buildHomeFeaturedRolloverQueueState(item: HomeFeaturedEventCard): HomeFeaturedRolloverQueueState {
+  return {
+    activeIndex: -1,
+    events: item.targetType === 'series' && item.nextSeriesEvent ? [item.nextSeriesEvent] : [],
+  }
+}
+
+function useHomeFeaturedRolloverItem(item: HomeFeaturedEventCard) {
+  const locale = useLocale()
+  const [queueState, setQueueState] = useState<HomeFeaturedRolloverQueueState>(() =>
+    buildHomeFeaturedRolloverQueueState(item),
+  )
+  const activeIndex = queueState.activeIndex
+  const rolloverEvents = queueState.events
+  const activeRolloverEvent = activeIndex >= 0 ? (rolloverEvents[activeIndex] ?? null) : null
+  const activeEvent = activeRolloverEvent?.event ?? item.event
+  const nextRolloverEvent = rolloverEvents[activeIndex + 1] ?? null
+
+  useEffect(
+    function preloadFutureFeaturedSeriesEvents() {
+      if (item.targetType !== 'series') {
+        return
+      }
+
+      const futureEventCount = rolloverEvents.length - (activeIndex + 1)
+      if (futureEventCount >= 2) {
+        return
+      }
+
+      const lastKnownEvent = rolloverEvents.at(-1)?.event ?? activeEvent
+      const controller = new AbortController()
+      let retryTimeoutId: number | null = null
+      let isActive = true
+      let retryAttempt = 0
+
+      function scheduleRolloverRetry() {
+        if (!isActive || retryAttempt >= HOME_FEATURED_ROLLOVER_MAX_RETRIES) {
+          return
+        }
+
+        const retryDelay = Math.min(
+          HOME_FEATURED_ROLLOVER_RETRY_MS * 2 ** retryAttempt,
+          HOME_FEATURED_ROLLOVER_MAX_RETRY_DELAY_MS,
+        )
+        retryAttempt += 1
+        retryTimeoutId = window.setTimeout(loadNextRolloverEvent, retryDelay)
+      }
+
+      async function loadNextRolloverEvent() {
+        try {
+          const query = new URLSearchParams({
+            currentEventSlug: lastKnownEvent.slug,
+            locale,
+          })
+          const response = await fetch(`/api/home-featured/series-rollover?${query.toString()}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+          })
+          if (!response.ok) {
+            throw new Error(`Featured rollover request failed with ${response.status}`)
+          }
+
+          const payload = (await response.json()) as { nextEvent?: HomeFeaturedRolloverEvent | null }
+          const nextEvent = payload.nextEvent ?? null
+          if (!isActive) {
+            return
+          }
+
+          if (!nextEvent) {
+            scheduleRolloverRetry()
+            return
+          }
+
+          setQueueState((current) => {
+            if (current.events.some((event) => event.event.id === nextEvent.event.id)) {
+              return current
+            }
+
+            return {
+              ...current,
+              events: [...current.events, nextEvent],
+            }
+          })
+        } catch {
+          if (isActive && !controller.signal.aborted) {
+            scheduleRolloverRetry()
+          }
+        }
+      }
+
+      void loadNextRolloverEvent()
+
+      return function cancelFutureFeaturedSeriesEventPreload() {
+        isActive = false
+        controller.abort()
+        if (retryTimeoutId != null) {
+          window.clearTimeout(retryTimeoutId)
+        }
+      }
+    },
+    [activeEvent, activeIndex, item.targetType, locale, rolloverEvents],
+  )
+
+  useEffect(
+    function scheduleFeaturedSeriesRollover() {
+      if (!nextRolloverEvent) {
+        return
+      }
+
+      const endTimestamp = resolveHomeFeaturedEventEndTimestamp(activeEvent)
+      if (endTimestamp == null) {
+        return
+      }
+
+      let timeoutId: number | null = null
+      function activateNextEvent() {
+        if (!isHomeFeaturedEventEnded(activeEvent, Date.now())) {
+          return
+        }
+
+        setQueueState((current) => {
+          const currentNextEvent = current.events[current.activeIndex + 1]
+          if (!currentNextEvent || currentNextEvent.event.id !== nextRolloverEvent.event.id) {
+            return current
+          }
+
+          if (current.activeIndex < 0) {
+            return { ...current, activeIndex: 0 }
+          }
+
+          const promotedIndex = current.activeIndex + 1
+          return {
+            ...current,
+            activeIndex: 0,
+            events: current.events.slice(promotedIndex),
+          }
+        })
+      }
+
+      timeoutId = window.setTimeout(activateNextEvent, Math.max(0, endTimestamp - Date.now()))
+      document.addEventListener('visibilitychange', activateNextEvent)
+
+      return function cancelFeaturedSeriesRollover() {
+        if (timeoutId != null) {
+          window.clearTimeout(timeoutId)
+        }
+        document.removeEventListener('visibilitychange', activateNextEvent)
+      }
+    },
+    [activeEvent, nextRolloverEvent],
+  )
+
+  return useMemo<HomeFeaturedEventCard>(() => {
+    if (!activeRolloverEvent) {
+      return item
+    }
+
+    return {
+      ...item,
+      ...activeRolloverEvent,
+      nextSeriesEvent: nextRolloverEvent,
+    }
+  }, [activeRolloverEvent, item, nextRolloverEvent])
+}
+
 function FeaturedSlide({
-  item,
+  item: sourceItem,
   currentTimestamp,
   isActive,
+  isPrevious,
   isNext,
   isChartEnabled,
 }: {
   item: HomeFeaturedEventCard
   currentTimestamp: number | null
   isActive: boolean
+  isPrevious: boolean
   isNext: boolean
   isChartEnabled: boolean
 }) {
+  const item = useHomeFeaturedRolloverItem(sourceItem)
   const isMobile = useIsMobile()
   const linkedHref = resolveEventPagePath(item.event)
-  const shouldRenderChart = isChartEnabled && (isActive || isNext)
+  const shouldRenderChart = isChartEnabled && (isPrevious || isActive || isNext)
   const [chartContainerRef, chartContainerWidth] = useElementWidth<HTMLDivElement>(shouldRenderChart)
   const isSingleMarket = item.event.total_markets_count === 1 || item.event.markets.length === 1
   const shouldRenderLiveSeriesChart = Boolean(
@@ -1824,10 +2144,17 @@ function FeaturedSlide({
             <HomeEventLiveSeriesChart
               event={item.event}
               isMobile={isMobile}
+              seriesEvents={item.seriesEvents}
               config={item.liveChartConfig}
               chartWidth={liveChartWidth}
               chartHeightOffset={HOME_FEATURED_CHART_HEIGHT_OFFSET}
               showSeriesControls={false}
+              showAreaFill={false}
+              showCurrentPriceGuide={false}
+              compactBitcoinHeaderPrices
+              preserveSeriesContinuity
+              showLiveMarketLink={false}
+              featuredChartLayout
             />
           ) : item.kind === 'sports' && sportsGraphCard && sportsGraphSelection ? (
             <HomeSportsGameGraph
@@ -1850,7 +2177,6 @@ function FeaturedSlide({
               chartWidth={chartContainerWidth}
               chartHeight={HOME_FEATURED_CHART_HEIGHT}
               isSingleMarketOverride={isSingleMarket}
-              disableResetAnimation
               forceVisible
             />
           )}
@@ -1958,47 +2284,58 @@ export default function HomeFeaturedEventsCarousel({
   sideCard,
 }: HomeFeaturedEventsCarouselProps) {
   const t = useExtracted()
-  const sectionRef = useRef<HTMLElement | null>(null)
+  const [featuredViewportStore] = useState(createFeaturedViewportStore)
+  const sectionRef = useCallback(
+    (node: HTMLElement | null) => featuredViewportStore.setNode(node),
+    [featuredViewportStore],
+  )
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isChartNearViewport, setIsChartNearViewport] = useState(false)
+  const isChartNearViewport = useSyncExternalStore(
+    featuredViewportStore.subscribe,
+    featuredViewportStore.getSnapshot,
+    featuredViewportStore.getServerSnapshot,
+  )
   const [isAutoAdvancePaused, setIsAutoAdvancePaused] = useState(false)
   const hasMultipleItems = items.length > 1
   const activeItem = items[activeIndex]
+  const previousIndex = items.length === 0 ? 0 : (activeIndex - 1 + items.length) % items.length
   const nextIndex = items.length === 0 ? 0 : (activeIndex + 1) % items.length
 
-  useEffect(function observeFeaturedCarousel() {
-    const node = sectionRef.current
-    if (!node || typeof IntersectionObserver === 'undefined') {
-      return
-    }
+  useEffect(
+    function preloadFeaturedCharts() {
+      if (typeof window === 'undefined') {
+        return
+      }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry?.isIntersecting) {
+      const mediaQuery = window.matchMedia?.('(min-width: 768px)')
+
+      function preloadCharts() {
+        if (mediaQuery && !mediaQuery.matches) {
           return
         }
 
-        setIsChartNearViewport(true)
-        observer.disconnect()
-      },
-      { rootMargin: '480px 0px' },
-    )
+        if (items.some((item) => item.kind === 'sports')) {
+          preloadFeaturedChunk(
+            () => import('@/app/[locale]/(platform)/sports/_components/_sports-games-center/SportsGameGraph'),
+          )
+        }
 
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
+        if (items.some((item) => item.liveChartConfig && shouldUseLiveSeriesChart(item.event, item.liveChartConfig))) {
+          preloadFeaturedChunk(() => import('@/app/[locale]/(platform)/event/[slug]/_components/EventLiveSeriesChart'))
+        }
+      }
 
-  useEffect(function stopFeaturedNavigationTransitionOnScroll() {
-    window.addEventListener('scroll', skipHomeFeaturedNavigationTransition, { passive: true })
-    window.addEventListener('touchmove', skipHomeFeaturedNavigationTransition, { passive: true })
-    window.addEventListener('wheel', skipHomeFeaturedNavigationTransition, { passive: true })
+      preloadCharts()
 
-    return () => {
-      window.removeEventListener('scroll', skipHomeFeaturedNavigationTransition)
-      window.removeEventListener('touchmove', skipHomeFeaturedNavigationTransition)
-      window.removeEventListener('wheel', skipHomeFeaturedNavigationTransition)
-    }
-  }, [])
+      if (!mediaQuery) {
+        return
+      }
+
+      mediaQuery.addEventListener('change', preloadCharts)
+      return () => mediaQuery.removeEventListener('change', preloadCharts)
+    },
+    [items],
+  )
 
   if (!activeItem) {
     return null
@@ -2009,10 +2346,7 @@ export default function HomeFeaturedEventsCarousel({
       return
     }
 
-    startTransition(() => {
-      addTransitionType(HOME_FEATURED_NAVIGATION_TYPE)
-      setActiveIndex((nextIndex + items.length) % items.length)
-    })
+    setActiveIndex((nextIndex + items.length) % items.length)
   }
 
   return (
@@ -2033,10 +2367,11 @@ export default function HomeFeaturedEventsCarousel({
           >
             {items.map((item, index) => (
               <FeaturedSlide
-                key={item.featuredId}
+                key={`${item.featuredId}:${item.event.id}`}
                 item={item}
                 currentTimestamp={currentTimestamp}
                 isActive={index === activeIndex}
+                isPrevious={index === previousIndex}
                 isNext={index === nextIndex}
                 isChartEnabled={isChartNearViewport}
               />
@@ -2097,13 +2432,7 @@ export default function HomeFeaturedEventsCarousel({
                 <span className="relative inline-flex h-10 max-w-60 min-w-10 items-center overflow-hidden rounded-full bg-secondary text-muted-foreground shadow-xs group-hover:bg-secondary/80">
                   <span className="inline-flex h-10 min-w-10 items-center gap-2 px-3 md:px-4">
                     <ChevronLeftIcon className="size-4" />
-                    <ViewTransition
-                      name="home-featured-navigation-previous-text"
-                      default="none"
-                      update={HOME_FEATURED_NAVIGATION_UPDATE}
-                    >
-                      <span className="hidden max-w-44 truncate text-xs md:block">{activeItem.previousTitle}</span>
-                    </ViewTransition>
+                    <span className="hidden max-w-44 truncate text-xs md:block">{activeItem.previousTitle}</span>
                   </span>
                 </span>
               </Button>
@@ -2115,13 +2444,7 @@ export default function HomeFeaturedEventsCarousel({
               >
                 <span className="relative inline-flex h-10 max-w-60 min-w-10 items-center overflow-hidden rounded-full bg-secondary text-muted-foreground shadow-xs group-hover:bg-secondary/80">
                   <span className="inline-flex h-10 min-w-10 items-center gap-2 px-3 md:px-4">
-                    <ViewTransition
-                      name="home-featured-navigation-next-text"
-                      default="none"
-                      update={HOME_FEATURED_NAVIGATION_UPDATE}
-                    >
-                      <span className="hidden max-w-44 truncate text-xs md:block">{activeItem.nextTitle}</span>
-                    </ViewTransition>
+                    <span className="hidden max-w-44 truncate text-xs md:block">{activeItem.nextTitle}</span>
                     <ChevronRightIcon className="size-4" />
                   </span>
                 </span>

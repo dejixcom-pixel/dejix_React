@@ -15,6 +15,7 @@ import { useAdminCategoryColumns } from '@/app/[locale]/admin/categories/_compon
 import MainCategorySortDialog from '@/app/[locale]/admin/categories/_components/MainCategorySortDialog'
 import SportsSidebarCategoriesManager from '@/app/[locale]/admin/categories/_components/SportsSidebarCategoriesManager'
 import { useAdminCategoriesTable } from '@/app/[locale]/admin/categories/_hooks/useAdminCategories'
+import LocaleFlag from '@/components/LocaleFlag'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -401,7 +402,7 @@ export default function AdminCategoriesTable() {
     <div className="flex items-center gap-2">
       <Switch id="admin-categories-main-only" checked={mainOnly} onCheckedChange={handleMainOnlyChange} />
       <Label htmlFor="admin-categories-main-only" className="text-sm font-normal text-muted-foreground">
-        {t('Only main')}
+        {t('Main only')}
       </Label>
     </div>
   )
@@ -469,7 +470,10 @@ export default function AdminCategoriesTable() {
   const translationFormFields = (
     <div className="grid gap-4 py-4">
       <div className="grid gap-2">
-        <Label htmlFor="translation-en">{t('English (source)')}</Label>
+        <Label htmlFor="translation-en" className="flex items-center gap-2">
+          <LocaleFlag locale="en" />
+          {t('English (source)')}
+        </Label>
         <Input id="translation-en" value={translationCategory?.name ?? ''} readOnly disabled />
       </div>
 
@@ -477,7 +481,10 @@ export default function AdminCategoriesTable() {
         const fieldId = `translation-${locale}`
         return (
           <div key={locale} className="grid gap-2">
-            <Label htmlFor={fieldId}>{LOCALE_LABELS[locale]}</Label>
+            <Label htmlFor={fieldId} className="flex items-center gap-2">
+              <LocaleFlag locale={locale} />
+              {LOCALE_LABELS[locale]}
+            </Label>
             <Input
               id={fieldId}
               value={translationValues[locale] ?? ''}
@@ -499,7 +506,6 @@ export default function AdminCategoriesTable() {
         columns={columns}
         data={categories}
         totalCount={totalCount}
-        searchPlaceholder={t('Search categories...')}
         enableSelection={false}
         enablePagination
         enableColumnVisibility={false}

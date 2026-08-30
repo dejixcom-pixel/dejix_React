@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 
 import dynamic from 'next/dynamic'
+import { useCallback } from 'react'
 
 import type { TradeFlowLabelItem } from '@/app/[locale]/(platform)/event/[slug]/_utils/eventChartInternalHelpers'
 import type {
@@ -47,6 +48,7 @@ interface EventChartCanvasProps {
   tradeFlowItems: TradeFlowLabelItem[]
 }
 
+const CHART_MARGIN = { top: 30, right: 40, bottom: 52, left: 0 }
 export default function EventChartCanvas({
   chartData,
   legendSeries,
@@ -64,6 +66,13 @@ export default function EventChartCanvas({
   watermark,
   tradeFlowItems,
 }: EventChartCanvasProps) {
+  const handleCursorDataChange = useCallback(
+    (snapshot: PredictionChartCursorSnapshot | null) => {
+      onCursorDataChange(snapshot)
+    },
+    [onCursorDataChange],
+  )
+
   return (
     <div className="relative">
       <PredictionChart
@@ -71,9 +80,10 @@ export default function EventChartCanvas({
         series={legendSeries}
         width={chartWidth}
         height={chartHeight}
-        margin={{ top: 30, right: 40, bottom: 52, left: 0 }}
+        margin={CHART_MARGIN}
         dataSignature={chartScopeKey}
-        onCursorDataChange={onCursorDataChange}
+        dataSyncMode="replace"
+        onCursorDataChange={handleCursorDataChange}
         xAxisTickCount={isMobile ? 2 : 4}
         autoscale={chartSettings.autoscale}
         showXAxis={chartSettings.xAxis}
