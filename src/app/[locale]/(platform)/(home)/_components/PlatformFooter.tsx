@@ -4,6 +4,7 @@ import type { Route } from 'next'
 
 import { CheckIcon, ChevronDownIcon, Globe2Icon } from 'lucide-react'
 import { useExtracted, useLocale } from 'next-intl'
+import Image from 'next/image'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import type { SocialIconName } from '@/components/SocialIcon'
@@ -29,6 +30,9 @@ import { stripLocalePrefix, withLocalePrefix } from '@/lib/locale-path'
 import { parsePlatformPathname } from '@/lib/platform-navigation'
 import { buildDynamicHomeCategorySlugSet } from '@/lib/platform-routing'
 import { cn } from '@/lib/utils'
+
+const DEJIX_MARK_SRC = '/images/logos/dejix-mark.png'
+const DEJIX_WORDMARK_SRC = '/images/logos/dejix-wordmark.png'
 
 const DEFAULT_CATEGORY_LIMIT = 15
 const CATEGORY_SECTION_LIMIT = 10
@@ -489,17 +493,25 @@ export default function PlatformFooter({
       <div className="mb-12">
         <Link
           href="/"
-          className="inline-flex items-center gap-3 text-3xl font-semibold text-foreground transition-opacity hover:opacity-80"
+          aria-label={site.name}
+          className="inline-flex items-center gap-2 text-3xl font-semibold text-foreground transition-opacity hover:opacity-80 sm:gap-3"
         >
           <SiteLogoIcon
             logoSvg={site.logoSvg}
-            logoImageUrl={site.logoImageUrl}
-            alt={`${site.name} logo`}
-            className="size-8 text-current [&_svg]:size-8 [&_svg_*]:fill-current [&_svg_*]:stroke-current"
-            imageClassName="size-8 object-contain"
+            logoImageUrl={DEJIX_MARK_SRC}
+            alt=""
+            className="size-6 text-current sm:size-8 [&_svg]:size-6 sm:[&_svg]:size-8 [&_svg_*]:fill-current [&_svg_*]:stroke-current"
+            imageClassName="size-6 object-contain sm:size-8"
             size={32}
           />
-          <span>{site.name}</span>
+          <Image
+            src={DEJIX_WORDMARK_SRC}
+            alt={site.name}
+            width={160}
+            height={34}
+            className="h-5 w-auto max-w-[7rem] object-contain object-left sm:h-8 sm:max-w-[11rem]"
+            unoptimized
+          />
         </Link>
         <p className="mt-3 max-w-xl text-base font-medium text-foreground/90">{site.description}</p>
       </div>

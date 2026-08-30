@@ -183,7 +183,7 @@ export function triggerConfetti(color: 'primary' | 'yes' | 'no', event?: any) {
   const colors = {
     yes: ['#10b981', '#059669', '#047857', '#065f46'],
     no: ['#ef4444', '#dc2626', '#b91c1c', '#991b1b'],
-    primary: ['#2563eb', '#1d4ed8', '#3b82f6', '#60a5fa'],
+    primary: ['#7c3aed', '#6d28d9', '#8b5cf6', '#a78bfa'],
   }[color ?? 'primary']
 
   void confetti({

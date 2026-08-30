@@ -18,6 +18,8 @@ import { shouldPrerenderPublicShell } from '@/lib/public-shell-rendering'
 import { getWagmiStateCookieValue } from '@/lib/wagmi-storage.server'
 import AppKitProvider from '@/providers/AppKitProvider'
 
+export const instant = false
+
 async function loadPlatformLayoutNavigation() {
   'use cache'
 

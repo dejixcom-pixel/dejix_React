@@ -1,10 +1,16 @@
-export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'pt', 'fr', 'zh', 'ja', 'ar', 'ru', 'it', 'pl', 'ko'] as const
+export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'pt', 'fr', 'zh', 'ja', 'ar', 'fa', 'ru', 'it', 'pl', 'ko'] as const
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 
 export const DEFAULT_LOCALE: SupportedLocale = 'en'
 export type NonDefaultLocale = Exclude<SupportedLocale, typeof DEFAULT_LOCALE>
 export const NON_DEFAULT_LOCALES = SUPPORTED_LOCALES.filter((locale) => locale !== DEFAULT_LOCALE) as NonDefaultLocale[]
+
+const RTL_LOCALES = ['ar', 'fa'] as const satisfies readonly SupportedLocale[]
+
+export function isRtlLocale(locale: SupportedLocale) {
+  return (RTL_LOCALES as readonly string[]).includes(locale)
+}
 
 export function resolveSupportedLocale(locale: string | null | undefined): SupportedLocale {
   const normalized = locale?.trim().toLowerCase()
@@ -21,6 +27,7 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   zh: '中文',
   ja: '日本語',
   ar: 'العربية',
+  fa: 'فارسی',
   ru: 'Русский',
   it: 'Italiano',
   pl: 'Polski',
@@ -40,6 +47,7 @@ export const LOOP_LABELS: Record<SupportedLocale, string> = {
   zh: '语言',
   ja: '言語',
   ar: 'اللغة',
+  fa: 'زبان',
   ru: 'Язык',
   it: 'Lingua',
   pl: 'Język',

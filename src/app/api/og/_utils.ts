@@ -2,7 +2,7 @@ import { oklchToRenderableColor } from '@/lib/color'
 
 const THEME_PRESET_PRIMARY_COLOR = {
   amber: 'oklch(0.881 0.168 94.237)',
-  default: 'oklch(0.55 0.2 255)',
+  default: 'oklch(0.52 0.22 303)',
   lime: 'oklch(0.67 0.2 145)',
   midnight: 'oklch(0.577 0.209 273.85)',
 } as const
@@ -23,7 +23,7 @@ export function normalizeOgText(value: string | null | undefined, maxLength: num
 export function resolveOgThemePrimaryColor(
   primaryValue: string | null | undefined,
   presetId: string,
-  fallback = '#3468d6',
+  fallback = '#7c3aed',
 ) {
   const normalizedPrimary = primaryValue?.trim()
   if (normalizedPrimary) {

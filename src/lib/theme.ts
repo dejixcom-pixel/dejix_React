@@ -89,12 +89,12 @@ const THEME_PRESETS: Record<ThemePresetId, ThemePreset> = {
   default: {
     id: 'default',
     label: 'Default',
-    description: 'Default theme palette.',
+    description: 'Default purple accent palette.',
   },
   midnight: {
     id: 'midnight',
     label: 'Midnight',
-    description: 'Cool blue-purple tones inspired by Discord.',
+    description: 'Cool indigo tones inspired by Discord.',
   },
   lime: {
     id: 'lime',

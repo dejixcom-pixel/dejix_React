@@ -40,6 +40,7 @@ const HOURLY_LABELS: Record<SupportedLocale, string> = {
   de: 'Stündlich',
   en: 'Hourly',
   es: 'Cada hora',
+  fa: 'ساعتی',
   fr: 'Horaire',
   it: 'Ogni ora',
   ja: '毎時',
@@ -54,6 +55,7 @@ const DAILY_LABELS: Record<SupportedLocale, string> = {
   de: 'Täglich',
   en: 'Daily',
   es: 'Diario',
+  fa: 'روزانه',
   fr: 'Quotidien',
   it: 'Quotidiano',
   ja: 'デイリー',
@@ -333,7 +335,8 @@ function formatCryptoCadenceWindow(
       localizedTimeRangeFormatters.set(locale, timeFormatter)
     }
 
-    const separator = locale === 'ar' ? '، ' : locale === 'ja' || locale === 'ko' || locale === 'zh' ? ' ' : ', '
+    const separator =
+      locale === 'ar' || locale === 'fa' ? '، ' : locale === 'ja' || locale === 'ko' || locale === 'zh' ? ' ' : ', '
     return `${dateLabel}${separator}${timeFormatter.formatRange(startDate, endDate)} ET`
   }
 

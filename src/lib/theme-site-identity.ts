@@ -17,8 +17,9 @@ const THEME_SITE_SOCIAL_LINK_FIELDS = [
 export type ThemeSiteSocialLinkField = (typeof THEME_SITE_SOCIAL_LINK_FIELDS)[number]
 
 const THEME_SITE_LOGO_MODE_SET = new Set<string>(THEME_SITE_LOGO_MODES)
-const DEFAULT_SITE_NAME_FALLBACK = 'Kuest'
+const DEFAULT_SITE_NAME_FALLBACK = 'DEJIX'
 const DEFAULT_SITE_DESCRIPTION_FALLBACK = 'Decentralized Prediction Markets'
+const DEFAULT_SITE_LOGO_IMAGE_PATH = '/images/logos/dejix-mark.png'
 const DEFAULT_SITE_LOGO_SVG_FALLBACK = `
 <svg viewBox="0 0 518 414" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
@@ -88,15 +89,16 @@ export function buildSvgDataUri(svg: string) {
 
 export function createDefaultThemeSiteIdentity(): ThemeSiteIdentity {
   const logoSvg = DEFAULT_THEME_SITE_LOGO_SVG
+  const logoImagePath = DEFAULT_SITE_LOGO_IMAGE_PATH
 
   return {
     name: DEFAULT_THEME_SITE_NAME,
     description: DEFAULT_THEME_SITE_DESCRIPTION,
-    logoMode: 'svg',
+    logoMode: 'image',
     logoSvg,
-    logoImagePath: null,
-    logoImageUrl: null,
-    logoUrl: buildSvgDataUri(logoSvg),
+    logoImagePath,
+    logoImageUrl: logoImagePath,
+    logoUrl: logoImagePath,
     googleAnalyticsId: null,
     discordLink: null,
     twitterLink: null,

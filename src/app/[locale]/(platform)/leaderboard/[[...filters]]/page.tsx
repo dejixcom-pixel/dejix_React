@@ -21,6 +21,8 @@ import { deferPublicShellPrerenderIfNeeded } from '@/lib/public-shell-rendering'
 import resolveSiteUrl from '@/lib/site-url'
 import { loadRuntimeThemeState } from '@/lib/theme-settings'
 
+export const instant = false
+
 function buildLocalizedPagePath(path: string, locale: SupportedLocale) {
   if (locale === DEFAULT_LOCALE) {
     return path

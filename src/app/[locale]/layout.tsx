@@ -17,9 +17,10 @@ import PwaServiceWorker from '@/components/PwaServiceWorker'
 import SiteStructuredData from '@/components/seo/SiteStructuredData'
 import TestModeBannerDeferred from '@/components/TestModeBannerDeferred'
 import { loadEnabledLocales } from '@/i18n/locale-settings'
+import { isRtlLocale } from '@/i18n/locales'
 import { getRootLocale } from '@/i18n/root-locale'
 import { cacheTags } from '@/lib/cache-tags'
-import { openSauceOne } from '@/lib/fonts'
+import { openSauceOne, vazirmatn } from '@/lib/fonts'
 import { loadGlobalAnnouncementSettings } from '@/lib/global-announcement-settings'
 import { IS_TEST_MODE } from '@/lib/network'
 import { getPublicRuntimeConfig } from '@/lib/public-runtime-config.server'
@@ -27,6 +28,7 @@ import { deferPublicShellPrerenderIfNeeded, shouldPrerenderPublicShell } from '@
 import { resolvePwaThemeColors } from '@/lib/pwa-colors'
 import resolveSiteUrl from '@/lib/site-url'
 import { loadRuntimeThemeState } from '@/lib/theme-settings'
+import { cn } from '@/lib/utils'
 import { AppProviders } from '@/providers/AppProviders'
 import PublicRuntimeConfigProvider from '@/providers/PublicRuntimeConfigProvider'
 import SiteIdentityProvider from '@/providers/SiteIdentityProvider'
@@ -208,12 +210,13 @@ function LocaleBody({
 async function PrerenderedLocaleDocument({ children }: LocaleDocumentProps) {
   const locale = await getRootLocale()
   const runtimeData = await loadLocaleRuntimeData(locale)
+  const fontVariable = isRtlLocale(locale) ? vazirmatn.variable : openSauceOne.variable
 
   return (
     <html
       lang={locale}
-      dir={locale === 'ar' ? 'rtl' : 'ltr'}
-      className={openSauceOne.variable}
+      dir={isRtlLocale(locale) ? 'rtl' : 'ltr'}
+      className={cn(fontVariable, isRtlLocale(locale) && 'font-arabic')}
       data-theme-preset={runtimeData.runtimeTheme.theme.presetId}
       suppressHydrationWarning
     >
@@ -227,12 +230,13 @@ async function PrerenderedLocaleDocument({ children }: LocaleDocumentProps) {
 async function RuntimeLocaleDocument({ children }: LocaleDocumentProps) {
   const locale = await getRootLocale()
   const runtimeData = await loadLocaleRuntimeData(locale)
+  const fontVariable = isRtlLocale(locale) ? vazirmatn.variable : openSauceOne.variable
 
   return (
     <html
       lang={locale}
-      dir={locale === 'ar' ? 'rtl' : 'ltr'}
-      className={openSauceOne.variable}
+      dir={isRtlLocale(locale) ? 'rtl' : 'ltr'}
+      className={cn(fontVariable, isRtlLocale(locale) && 'font-arabic')}
       suppressHydrationWarning
     >
       <LocaleBody {...runtimeData} locale={locale} syncRootPreset>
