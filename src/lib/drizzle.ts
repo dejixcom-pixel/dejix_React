@@ -21,6 +21,9 @@ function createDb(): DrizzleDb {
   const client =
     globalForDb.client ??
     postgres(url, {
+      // Vercel/serverless: one connection per isolate. Default max (10) exhausts
+      // Supabase pooler limits and causes intermittent SIWE/API 500s.
+      max: 1,
       prepare: false,
       connect_timeout: 10,
       idle_timeout: 20,
