@@ -26,13 +26,40 @@ function normalizeSiteUrl(value: string): string {
   return `${parsed.protocol}//${parsed.host}${normalizedPath}${parsed.search}${parsed.hash}`
 }
 
+function resolveVercelDeploymentUrl(env: Readonly<Partial<NodeJS.ProcessEnv>>): string | null {
+  // Prefer the stable branch alias on Preview, then the per-deployment host.
+  for (const value of [env.VERCEL_BRANCH_URL, env.VERCEL_URL]) {
+    if (typeof value === 'string' && value.trim()) {
+      return normalizeSiteUrl(value)
+    }
+  }
+
+  return null
+}
+
 export default function resolveSiteUrl(env: Readonly<Partial<NodeJS.ProcessEnv>> = process.env): string {
   if (typeof env.SITE_URL === 'string' && env.SITE_URL.trim()) {
     return normalizeSiteUrl(env.SITE_URL)
   }
 
+  const vercelEnv = typeof env.VERCEL_ENV === 'string' ? env.VERCEL_ENV.trim() : ''
+
+  // Preview/dev deployments must not fall back to the production host — SIWE origin
+  // checks and wallet message domains require the URL the browser is actually on.
+  if (vercelEnv === 'preview' || vercelEnv === 'development') {
+    const previewUrl = resolveVercelDeploymentUrl(env)
+    if (previewUrl) {
+      return previewUrl
+    }
+  }
+
   if (typeof env.VERCEL_PROJECT_PRODUCTION_URL === 'string' && env.VERCEL_PROJECT_PRODUCTION_URL.trim()) {
     return normalizeSiteUrl(env.VERCEL_PROJECT_PRODUCTION_URL)
+  }
+
+  const vercelUrl = resolveVercelDeploymentUrl(env)
+  if (vercelUrl) {
+    return vercelUrl
   }
 
   return 'http://localhost:3000'

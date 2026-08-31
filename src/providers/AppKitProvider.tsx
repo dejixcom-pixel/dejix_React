@@ -262,12 +262,18 @@ function initializeAppKitSingleton(
         // Same-wallet arbitrage temporarily switches from the site chain to Polygon.
         // That network change must not start a second SIWE flow or end the site session.
         signOutOnNetworkChange: false,
-        getMessageParams: async () => ({
-          domain: new URL(runtimeConfig.siteUrl).host,
-          uri: typeof window !== 'undefined' ? window.location.origin : '',
-          chains: [defaultNetwork.id],
-          statement: 'Please sign with your account',
-        }),
+        getMessageParams: async () => {
+          const siteOrigin = new URL(runtimeConfig.siteUrl).origin
+          const browserOrigin = typeof window !== 'undefined' ? window.location.origin : siteOrigin
+          // Better Auth SIWE verifies against SITE_URL/VERCEL host. Prefer the configured
+          // site host for `domain`, but keep `uri` as the page the user is actually on.
+          return {
+            domain: new URL(runtimeConfig.siteUrl).host,
+            uri: browserOrigin,
+            chains: [defaultNetwork.id],
+            statement: 'Please sign with your account',
+          }
+        },
         createMessage: ({ address, ...args }: SIWECreateMessageArgs) => {
           const chainId = defaultNetwork.id
           return createSiweMessage({ ...args, address, chainId }, chainId)

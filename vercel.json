@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm db:push && next build",
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then pnpm db:push; fi && next build",
   "ignoreCommand": "if git log -1 --pretty=%B | grep -q '\\[skip deploy\\]'; then exit 0; else exit 1; fi",
   "git": {
     "deploymentEnabled": {

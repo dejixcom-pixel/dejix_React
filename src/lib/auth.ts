@@ -31,6 +31,28 @@ const SIWE_DOMAIN = siteUrlObject.host
 const SIWE_EMAIL_DOMAIN = siteUrlObject.hostname || 'kuest.com'
 const BUILD_ONLY_BETTER_AUTH_SECRET = 'runtime-env-only-build-placeholder-secret-32-chars-minimum'
 
+function resolveTrustedOrigins(): string[] {
+  const origins = new Set<string>([siteUrlObject.origin, 'https://*.vercel.app'])
+
+  for (const value of [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]) {
+    if (!value?.trim()) {
+      continue
+    }
+
+    try {
+      origins.add(new URL(value.includes('://') ? value : `https://${value}`).origin)
+    } catch {
+      // Ignore malformed Vercel host env values.
+    }
+  }
+
+  return [...origins]
+}
+
 function resolveBetterAuthSecret() {
   if (process.env.BETTER_AUTH_SECRET?.trim()) {
     return process.env.BETTER_AUTH_SECRET
@@ -135,6 +157,7 @@ export const auth = betterAuth({
   appName: DEFAULT_THEME_SITE_NAME,
   secret: resolveBetterAuthSecret(),
   baseURL: SITE_URL,
+  trustedOrigins: resolveTrustedOrigins(),
   advanced: {
     database: {
       generateId: false,
