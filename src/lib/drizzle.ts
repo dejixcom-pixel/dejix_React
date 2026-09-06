@@ -18,12 +18,15 @@ function createDb(): DrizzleDb {
     throw new Error('POSTGRES_URL is not set. Configure the database env vars to enable DB features.')
   }
 
+  // Serverless isolates should stay tiny. Local/`next start` needs a few
+  // concurrent connections — nested `"use cache"` + home fan-out deadlocks on max:1.
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+  const maxConnections = isServerless ? 1 : 5
+
   const client =
     globalForDb.client ??
     postgres(url, {
-      // Vercel/serverless: one connection per isolate. Default max (10) exhausts
-      // Supabase pooler limits and causes intermittent SIWE/API 500s.
-      max: 1,
+      max: maxConnections,
       prepare: false,
       connect_timeout: 10,
       idle_timeout: 20,

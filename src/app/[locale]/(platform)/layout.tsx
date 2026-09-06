@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 
 import { getExtracted, setRequestLocale } from 'next-intl/server'
 
+import type { SupportedLocale } from '@/i18n/locales'
+
 import { PlatformLayoutFooter } from '@/app/[locale]/(platform)/(home)/_components/PlatformFooter'
 import AffiliateQueryHandler from '@/app/[locale]/(platform)/_components/AffiliateQueryHandler'
 import Header from '@/app/[locale]/(platform)/_components/Header'
@@ -20,26 +22,19 @@ import AppKitProvider from '@/providers/AppKitProvider'
 
 export const instant = false
 
-async function loadPlatformLayoutNavigation() {
-  'use cache'
-
-  const locale = await getRootLocale()
+async function PlatformLayoutContent({ children, locale }: { children: ReactNode; locale: SupportedLocale }) {
+  // Keep i18n + tag assembly outside `"use cache"`. Tags are already cached in
+  // `TagRepository.getMainTags` — a surrounding cache layer nested those fills
+  // and deadlocked on the shared DB client.
   const t = await getExtracted({ locale })
   const { data: mainTags, globalChilds } = await loadPlatformMainTags(locale)
-
-  return {
-    tags: buildPlatformNavigationTags({
-      mainTags: mainTags ?? [],
-      globalChilds,
-      trendingLabel: t('Trending'),
-      newLabel: t('New'),
-    }),
-    childParentMap: buildChildParentMap(mainTags ?? []),
-  }
-}
-
-async function PlatformLayoutContent({ children }: { children: ReactNode }) {
-  const { tags, childParentMap } = await loadPlatformLayoutNavigation()
+  const tags = buildPlatformNavigationTags({
+    mainTags: mainTags ?? [],
+    globalChilds,
+    trendingLabel: t('Trending'),
+    newLabel: t('New'),
+  })
+  const childParentMap = buildChildParentMap(mainTags ?? [])
 
   return (
     <TradingOnboardingProvider>
@@ -67,7 +62,7 @@ export default async function PlatformLayout({ children }: LayoutProps<'/[locale
 
   return (
     <AppKitProvider wagmiCookie={wagmiCookie}>
-      <PlatformLayoutContent>{children}</PlatformLayoutContent>
+      <PlatformLayoutContent locale={resolvedLocale}>{children}</PlatformLayoutContent>
     </AppKitProvider>
   )
 }

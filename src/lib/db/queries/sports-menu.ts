@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, or, sql } from 'drizzle-orm'
-import { cacheTag, unstable_cache } from 'next/cache'
+import { cacheLife, cacheTag } from 'next/cache'
 
 import type { SportsMenuActiveCountRow } from '@/lib/sports-menu-counts'
 import type { SportsMenuEntry } from '@/lib/sports-menu-types'
@@ -183,16 +183,13 @@ async function fetchSportsMenuRows(): Promise<SportsMenuItemRow[]> {
     .orderBy(asc(sports_menu_items.sort_order), asc(sports_menu_items.id))
 }
 
-const getCachedSportsMenuRows = unstable_cache(
-  async (): Promise<SportsMenuItemRow[]> => {
-    return fetchSportsMenuRows()
-  },
-  ['sports-menu-items-v2'],
-  {
-    revalidate: 1800,
-    tags: [cacheTags.sportsMenu],
-  },
-)
+async function getCachedSportsMenuRows(): Promise<SportsMenuItemRow[]> {
+  'use cache'
+  cacheTag(cacheTags.sportsMenu)
+  cacheLife({ stale: 1800, revalidate: 1800, expire: 3600 })
+
+  return fetchSportsMenuRows()
+}
 
 async function getSportsMenuRowsWithFreshEmptyFallback() {
   const cachedRows = await getCachedSportsMenuRows()
@@ -212,48 +209,45 @@ async function getRequiredSportsMenuRows() {
   return rows
 }
 
-const getCachedActiveSportsCountRows = unstable_cache(
-  async (): Promise<SportsMenuActiveCountRow[]> => {
-    const rows = await db
-      .select({
-        slug: event_sports.sports_sport_slug,
-        series_slug: event_sports.sports_series_slug,
-        event_slug: events.slug,
-        sports_event_id: event_sports.sports_event_id,
-        sports_event_slug: event_sports.sports_event_slug,
-        parent_event_id: event_sports.sports_parent_event_id,
-        tags: event_sports.sports_tags,
-        is_hidden: events.is_hidden,
-        sports_live: event_sports.sports_live,
-        sports_ended: event_sports.sports_ended,
-        sports_start_time: event_sports.sports_start_time,
-        start_date: events.start_date,
-        end_date: events.end_date,
-      })
-      .from(event_sports)
-      .innerJoin(events, eq(event_sports.event_id, events.id))
-      .where(
-        and(
-          eq(events.status, 'active'),
-          eq(events.is_hidden, false),
-          gt(events.active_markets_count, 0),
-          sql`LOWER(TRIM(COALESCE(${events.slug}, ''))) !~ ${SPORTS_AUXILIARY_SLUG_SQL_REGEX}`,
-          or(
-            sql`TRIM(COALESCE(${event_sports.sports_sport_slug}, '')) <> ''`,
-            sql`TRIM(COALESCE(${event_sports.sports_series_slug}, '')) <> ''`,
-            sql`jsonb_array_length(COALESCE(${event_sports.sports_tags}, '[]'::jsonb)) > 0`,
-          ),
-        ),
-      )
+async function getCachedActiveSportsCountRows(): Promise<SportsMenuActiveCountRow[]> {
+  'use cache'
+  cacheTag(cacheTags.sportsMenu, cacheTags.eventsList)
+  cacheLife({ stale: 900, revalidate: 900, expire: 1800 })
 
-    return rows
-  },
-  ['sports-menu-active-count-rows-v4'],
-  {
-    revalidate: 900,
-    tags: [cacheTags.sportsMenu, cacheTags.eventsList],
-  },
-)
+  const rows = await db
+    .select({
+      slug: event_sports.sports_sport_slug,
+      series_slug: event_sports.sports_series_slug,
+      event_slug: events.slug,
+      sports_event_id: event_sports.sports_event_id,
+      sports_event_slug: event_sports.sports_event_slug,
+      parent_event_id: event_sports.sports_parent_event_id,
+      tags: event_sports.sports_tags,
+      is_hidden: events.is_hidden,
+      sports_live: event_sports.sports_live,
+      sports_ended: event_sports.sports_ended,
+      sports_start_time: event_sports.sports_start_time,
+      start_date: events.start_date,
+      end_date: events.end_date,
+    })
+    .from(event_sports)
+    .innerJoin(events, eq(event_sports.event_id, events.id))
+    .where(
+      and(
+        eq(events.status, 'active'),
+        eq(events.is_hidden, false),
+        gt(events.active_markets_count, 0),
+        sql`LOWER(TRIM(COALESCE(${events.slug}, ''))) !~ ${SPORTS_AUXILIARY_SLUG_SQL_REGEX}`,
+        or(
+          sql`TRIM(COALESCE(${event_sports.sports_sport_slug}, '')) <> ''`,
+          sql`TRIM(COALESCE(${event_sports.sports_series_slug}, '')) <> ''`,
+          sql`jsonb_array_length(COALESCE(${event_sports.sports_tags}, '[]'::jsonb)) > 0`,
+        ),
+      ),
+    )
+
+  return rows
+}
 
 function toMappingEntries(rows: SportsMenuItemRow[]) {
   const childrenByParent = buildChildrenByParent(rows)
@@ -365,9 +359,22 @@ async function getCachedSportsSlugResolverFromDb() {
   return buildSportsSlugResolver(mappingEntries)
 }
 
-export async function getSportsSlugResolverFromDb() {
+async function loadSportsSlugResolverUncached() {
+  const rows = await fetchSportsMenuRows()
+  return buildSportsSlugResolver(toMappingEntries(rows))
+}
+
+/**
+ * @param options.cache - When false, skip nested `"use cache"` (required when
+ *   called from another `"use cache"` function such as `listEvents`).
+ */
+export async function getSportsSlugResolverFromDb(options?: { cache?: boolean }) {
   if (!hasDatabaseEnv()) {
     return buildSportsSlugResolver([])
+  }
+
+  if (options?.cache === false) {
+    return loadSportsSlugResolverUncached()
   }
 
   return getCachedSportsSlugResolverFromDb()

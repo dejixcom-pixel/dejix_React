@@ -1448,7 +1448,8 @@ async function buildEventListQueryContext({
   hideSports?: boolean
   locale?: SupportedLocale
 }): Promise<EventListQueryContext> {
-  const sportsSlugResolver = await getSportsSlugResolverFromDb()
+  // Called from `"use cache"` list helpers — avoid nested sports-menu cache.
+  const sportsSlugResolver = await getSportsSlugResolverFromDb({ cache: false })
   const normalizedRequestedSportsSportSlug = sportsSportSlug.trim().toLowerCase()
   const whereConditions: SQL<unknown>[] = []
 
@@ -1802,7 +1803,8 @@ export const EventRepository = {
     return await runQuery(async () => {
       const safeLimit = normalizeEventListLimit(limit)
       const validOffset = normalizeEventListOffset(offset)
-      const sportsSlugResolver = await getSportsSlugResolverFromDb()
+      // Never nest sports-menu `"use cache"` inside listEvents — that deadlocks on the shared DB client.
+      const sportsSlugResolver = await getSportsSlugResolverFromDb({ cache: false })
       const normalizedRequestedSportsSportSlug = sportsSportSlug.trim().toLowerCase()
 
       const whereConditions: SQL<unknown>[] = []
@@ -3298,7 +3300,7 @@ export const EventRepository = {
         .innerJoin(tags, eq(event_tags.tag_id, tags.id))
         .where(eq(event_tags.event_id, eventRow.id))
 
-      const sportsSlugResolver = await getSportsSlugResolverFromDb()
+      const sportsSlugResolver = await getSportsSlugResolverFromDb({ cache: false })
       const normalizedSportsTags = toOptionalStringArray(eventRow.sports_tags)
 
       return {
@@ -3845,7 +3847,7 @@ export const EventRepository = {
         currentCryptoAssetSeriesPattern && !shouldExcludeCurrentCryptoAsset
           ? sql<number>`CASE WHEN ${normalizedRelatedSeriesSlug} ~ ${currentCryptoAssetSeriesPattern} THEN 1 ELSE 0 END`
           : null
-      const sportsSlugResolver = await getSportsSlugResolverFromDb()
+      const sportsSlugResolver = await getSportsSlugResolverFromDb({ cache: false })
       const commonTagsCount = sql<number>`COUNT(DISTINCT ${event_tags.tag_id})`
       const relatedCandidates = await db
         .select({

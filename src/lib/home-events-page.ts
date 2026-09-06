@@ -158,7 +158,11 @@ async function loadHomeEventCandidates({
       locale,
       sportsSportSlug,
       sportsSection,
+      hideSports,
+      hideCrypto,
+      hideEarnings,
       excludeSportsAuxiliary: true,
+      skipLivePricing: true,
     })
 
     if (error) {
