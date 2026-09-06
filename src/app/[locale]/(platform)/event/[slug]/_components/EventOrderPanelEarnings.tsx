@@ -217,7 +217,7 @@ export default function EventOrderPanelEarnings({
                   </div>
                   <div className="grid gap-1.5 border-t p-3 text-xs">
                     <div className="flex items-center justify-between gap-3 text-muted-foreground">
-                      <span>{t('Kuest fee')}</span>
+                      <span>{t('DEJIX fee')}</span>
                       <span>{kuestFeeLabel}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3 text-muted-foreground">

@@ -254,7 +254,7 @@ export default function AdminAffiliateFeeChart({
               <span className="font-medium">{Math.round(activePrice * 100)}¢</span>
               {audience === 'admin' && (
                 <>
-                  <span className="text-muted-foreground">{t('Kuest fee')}</span>
+                  <span className="text-muted-foreground">{t('DEJIX fee')}</span>
                   <span className="font-medium">{formatFeeAmount(activeKuestFee)}</span>
                   <span className="text-muted-foreground">{t('{siteName} fee', { siteName })}</span>
                   <span className="font-medium">{formatFeeAmount(activeOperatorFee)}</span>

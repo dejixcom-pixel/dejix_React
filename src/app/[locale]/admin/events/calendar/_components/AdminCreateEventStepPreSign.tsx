@@ -168,7 +168,7 @@ export function AdminCreateEventStepPreSign({
             <div className="mt-2 space-y-1">
               <p className="text-sm text-muted-foreground">
                 {resolutionType === 'dro_moov2'
-                  ? t('This direct fee is paid onchain to Kuest when the market request is created.')
+                  ? t('This direct fee is paid onchain to DEJIX when the market request is created.')
                   : t('This reward pays the UMA proposer who resolves the question correctly.')}
               </p>
               <p className="text-sm text-muted-foreground">

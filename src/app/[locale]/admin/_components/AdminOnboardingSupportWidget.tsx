@@ -440,7 +440,7 @@ export default function AdminOnboardingSupportWidget({
             <XIcon className="size-3.5" aria-hidden />
           </button>
           <button type="button" onClick={openSupport} className="block w-full text-left">
-            <span className="block text-xs font-semibold text-background">{t('Kuest Message')}</span>
+            <span className="block text-xs font-semibold text-background">{t('DEJIX Message')}</span>
             <span className="mt-1 block text-xs/relaxed text-background/75">{announcement.body}</span>
           </button>
           <span
@@ -530,7 +530,7 @@ export default function AdminOnboardingSupportWidget({
                   className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   <HeadphonesIcon className="size-4 text-muted-foreground" aria-hidden />
-                  {t('Kuest Support')}
+                  {t('DEJIX Support')}
                 </button>
               </div>
             </>
@@ -555,7 +555,7 @@ export default function AdminOnboardingSupportWidget({
                 ) : (
                   <span className="size-8" aria-hidden />
                 )}
-                <p className="text-sm font-semibold text-foreground">{t('Kuest Support')}</p>
+                <p className="text-sm font-semibold text-foreground">{t('DEJIX Support')}</p>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
@@ -582,7 +582,7 @@ export default function AdminOnboardingSupportWidget({
       <button
         type="button"
         onClick={isOpen ? () => setIsOpen(false) : openWidget}
-        aria-label={isComplete ? t('Kuest Support') : t('Onboarding')}
+        aria-label={isComplete ? t('DEJIX Support') : t('Onboarding')}
         className={cn(
           `grid size-12 place-items-center rounded-full border border-border/60 bg-foreground text-background shadow-lg shadow-foreground/15 transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`,
           unreadMessage && !isOpen && 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-background',

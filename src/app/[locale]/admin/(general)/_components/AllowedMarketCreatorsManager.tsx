@@ -310,7 +310,7 @@ export default function AllowedMarketCreatorsManager({ disabled = false }: Allow
 
       {dialogMode === 'site' ? (
         <div className="grid gap-2">
-          <Label htmlFor="allowed-market-source-url">{t('Kuest site URL or domain')}</Label>
+          <Label htmlFor="allowed-market-source-url">{t('DEJIX site URL or domain')}</Label>
           <Input
             id="allowed-market-source-url"
             value={siteUrl}
@@ -356,7 +356,7 @@ export default function AllowedMarketCreatorsManager({ disabled = false }: Allow
             <Label>{t('Allowed mirrored market sources')}</Label>
             <p className="text-xs text-muted-foreground">
               {t(
-                'Add the URL of another prediction market running on Kuest to import its wallets automatically, or add a wallet with a display name.',
+                'Add the URL of another prediction market running on DEJIX to import its wallets automatically, or add a wallet with a display name.',
               )}
             </p>
           </div>
@@ -420,7 +420,7 @@ export default function AllowedMarketCreatorsManager({ disabled = false }: Allow
             <DrawerHeader className="space-y-2 p-0 text-left">
               <DrawerTitle>{t('Add mirrored market source')}</DrawerTitle>
               <DrawerDescription>
-                {t('Choose whether you want to add a Kuest site URL or a wallet with a display name.')}
+                {t('Choose whether you want to add a DEJIX site URL or a wallet with a display name.')}
               </DrawerDescription>
             </DrawerHeader>
 
@@ -443,7 +443,7 @@ export default function AllowedMarketCreatorsManager({ disabled = false }: Allow
             <DialogHeader>
               <DialogTitle>{t('Add mirrored market source')}</DialogTitle>
               <DialogDescription>
-                {t('Choose whether you want to add a Kuest site URL or a wallet with a display name.')}
+                {t('Choose whether you want to add a DEJIX site URL or a wallet with a display name.')}
               </DialogDescription>
             </DialogHeader>
 

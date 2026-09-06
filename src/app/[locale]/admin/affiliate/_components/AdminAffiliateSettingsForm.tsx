@@ -235,7 +235,7 @@ export default function AdminAffiliateSettingsForm({
                 />
                 <PopoverContent align="end" className="w-72">
                   <PopoverTitle>{t('Maker fee')}</PopoverTitle>
-                  <p className="text-xs text-muted-foreground">{t('Kuest maker fee: 0%.')}</p>
+                  <p className="text-xs text-muted-foreground">{t('DEJIX maker fee: 0%.')}</p>
                   <div className="flex items-start">
                     <Input
                       id="builder_maker_flat_fee_percent"

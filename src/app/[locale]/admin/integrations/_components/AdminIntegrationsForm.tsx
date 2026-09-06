@@ -674,7 +674,7 @@ function AdminIntegrationsFormInner(props: AdminIntegrationsFormProps) {
         >
           <div className="grid gap-4">
             <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="integration-kuest-support-enabled">{t('Enable Kuest Support')}</Label>
+              <Label htmlFor="integration-kuest-support-enabled">{t('Enable DEJIX Support')}</Label>
               <Switch
                 id="integration-kuest-support-enabled"
                 checked={kuestSupportEnabled}
