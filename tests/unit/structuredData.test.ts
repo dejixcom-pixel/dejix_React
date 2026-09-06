@@ -153,7 +153,7 @@ describe('structuredData', () => {
       ],
     })
 
-    expect(structuredData.event.url).toBe('https://kuest.example/event/will-the-iranian-regime-fall-by-june-30')
+    expect(structuredData.event.url).toBe('https://kuest.example/en/event/will-the-iranian-regime-fall-by-june-30')
     expect(structuredData.event.eventStatus).toBe('https://schema.org/EventScheduled')
     expect(structuredData.event.offers).toMatchObject({
       '@type': 'Offer',
@@ -166,25 +166,25 @@ describe('structuredData', () => {
         '@type': 'ListItem',
         position: 1,
         name: 'Kuest',
-        item: 'https://kuest.example/',
+        item: 'https://kuest.example/en',
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Politics',
-        item: 'https://kuest.example/politics',
+        item: 'https://kuest.example/en/politics',
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: 'Iran',
-        item: 'https://kuest.example/politics/iran',
+        item: 'https://kuest.example/en/politics/iran',
       },
       {
         '@type': 'ListItem',
         position: 4,
         name: 'Will the Iranian regime fall by June 30?',
-        item: 'https://kuest.example/event/will-the-iranian-regime-fall-by-june-30',
+        item: 'https://kuest.example/en/event/will-the-iranian-regime-fall-by-june-30',
       },
     ])
 

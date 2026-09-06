@@ -140,7 +140,7 @@ describe('tagRepository.getMainTags', () => {
       })
 
     const { TagRepository } = await import('@/lib/db/queries/tag')
-    const result = await TagRepository.getMainTags('en')
+    const result = await TagRepository.getMainTags('fa')
 
     expect(result.error).toBeNull()
     expect(result.data).toMatchObject([
@@ -250,7 +250,7 @@ describe('tagRepository.getMainTags', () => {
       })
 
     const { TagRepository } = await import('@/lib/db/queries/tag')
-    const result = await TagRepository.getMainTags('en')
+    const result = await TagRepository.getMainTags('fa')
 
     expect(result.error).toBeNull()
     expect(result.data).toHaveLength(1)
@@ -326,7 +326,7 @@ describe('tagRepository.getMainTags', () => {
       })
 
     const { TagRepository } = await import('@/lib/db/queries/tag')
-    const result = await TagRepository.getMainTags('en')
+    const result = await TagRepository.getMainTags('fa')
     const crypto = result.data?.[0]
 
     for (const routeSlug of ['5M', '15M', 'hourly', '4hour', 'daily']) {
@@ -450,7 +450,7 @@ describe('tagRepository.getMainTags', () => {
       })
 
     const { TagRepository } = await import('@/lib/db/queries/tag')
-    const result = await TagRepository.getMainTags('en')
+    const result = await TagRepository.getMainTags('fa')
 
     expect(result.error).toBeNull()
     expect(result.data).toHaveLength(1)

@@ -157,6 +157,6 @@ describe('event open graph helpers', () => {
       },
     })
 
-    expect(pageUrl).toBe('https://demo.kuest.com/esports/dota-2/blast-slam/dota2-vg-yb1-2026-04-03/game-1-winner')
+    expect(pageUrl).toBe('https://demo.kuest.com/en/esports/dota-2/blast-slam/dota2-vg-yb1-2026-04-03/game-1-winner')
   })
 })

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   buildHomeSportsMoneylineModel: vi.fn(),
   dynamicSportsCard: vi.fn(),
   eventCardHeader: vi.fn(),
-  locale: 'en-US',
+  locale: 'en',
   singleMarketActions: vi.fn(),
   useXTrackerTweetCount: vi.fn(),
 }))
@@ -106,7 +106,7 @@ describe('eventCard', () => {
     mocks.buildHomeSportsMoneylineModel.mockReset()
     mocks.dynamicSportsCard.mockReset()
     mocks.eventCardHeader.mockReset()
-    mocks.locale = 'en-US'
+    mocks.locale = 'en'
     mocks.singleMarketActions.mockReset()
     mocks.useXTrackerTweetCount.mockReset()
     mocks.useXTrackerTweetCount.mockReturnValue({ data: null })

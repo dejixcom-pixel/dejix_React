@@ -75,7 +75,7 @@ describe('leaderboard metadata', () => {
 
     expect(mocks.calls.indexOf('defer')).toBeGreaterThanOrEqual(0)
     expect(firstResolveIndex).toBeGreaterThan(mocks.calls.indexOf('defer'))
-    expect(metadata.openGraph?.url).toBe('https://demo.kuest.com/leaderboard/sports/weekly/volume')
+    expect(metadata.openGraph?.url).toBe('https://demo.kuest.com/en/leaderboard/sports/weekly/volume')
     expect(serializedMetadata).toContain('https://demo.kuest.com/api/og/leaderboard')
     expect(serializedMetadata).not.toContain('localhost:3000')
   })
