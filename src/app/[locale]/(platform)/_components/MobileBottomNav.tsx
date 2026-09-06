@@ -243,7 +243,7 @@ function MobileBottomNavContent({ pathname }: MobileBottomNavContentProps) {
                     <button
                       type="button"
                       className={cn(
-                        `flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold disabled:pointer-events-none disabled:opacity-50`,
+                        `flex w-full items-center gap-3 px-4 py-3 text-start text-sm font-semibold disabled:pointer-events-none disabled:opacity-50`,
                       )}
                       onClick={() => {
                         void handleInstallAction()
@@ -301,7 +301,7 @@ function MobileBottomNavContent({ pathname }: MobileBottomNavContentProps) {
                   render={
                     <button
                       type="button"
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-start text-sm font-semibold"
                       onClick={handleHowItWorksAction}
                     />
                   }

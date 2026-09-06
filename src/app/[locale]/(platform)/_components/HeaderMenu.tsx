@@ -33,7 +33,7 @@ function HeaderMenuSkeleton() {
       <Skeleton className="hidden h-9 w-20 lg:block" />
       <Skeleton className="size-9 rounded-md" />
       <Skeleton className="size-9 rounded-md" />
-      <div className="-ml-1 hidden h-5 w-px bg-border md:block" />
+      <div className="-ms-1 hidden h-5 w-px bg-border md:block" />
       <Skeleton className="h-9 w-20 rounded-md" />
     </div>
   )
@@ -84,7 +84,7 @@ export default function HeaderMenu() {
             <TooltipContent>{t('Rewards')}</TooltipContent>
           </Tooltip>
           <HeaderNotifications />
-          <div className="-ml-1 hidden h-5 w-px bg-border md:block" aria-hidden="true" />
+          <div className="-ms-1 hidden h-5 w-px bg-border md:block" aria-hidden="true" />
           <HeaderDropdownUserMenuAuth />
         </>
       )}

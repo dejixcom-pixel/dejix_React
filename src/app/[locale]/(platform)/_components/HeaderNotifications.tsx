@@ -222,7 +222,7 @@ export default function HeaderNotifications() {
         {unreadCount > 0 && (
           <span
             className={cn(
-              `absolute top-0.5 right-1.5 flex size-3 items-center justify-center rounded-full bg-primary text-xs font-medium text-destructive-foreground`,
+              `absolute end-1.5 top-0.5 flex size-3 items-center justify-center rounded-full bg-primary text-xs font-medium text-destructive-foreground`,
             )}
           />
         )}

@@ -1701,7 +1701,7 @@ function FeaturedRightRail({
                 {index === safeActiveIndex && (
                   <span
                     key={`${slide.id}-${safeActiveIndex}`}
-                    className="absolute inset-y-0 left-0 w-full origin-left animate-[home-featured-pagination-progress_7000ms_linear_forwards] rounded-full bg-primary motion-reduce:animate-none"
+                    className="origin-start absolute inset-y-0 start-0 w-full animate-[home-featured-pagination-progress_7000ms_linear_forwards] rounded-full bg-primary motion-reduce:animate-none"
                     style={{ animationPlayState: isPaused ? 'paused' : 'running' }}
                     onAnimationEnd={() => {
                       if (!isPaused) {
@@ -2067,7 +2067,7 @@ export default function HomeFeaturedEventsCarousel({
                     <span
                       key={`progress-${item.featuredId}-${activeIndex}`}
                       className={cn(
-                        `absolute inset-y-0 left-0 w-full origin-left animate-[home-featured-pagination-progress_7000ms_linear_forwards] rounded-full bg-foreground/80 motion-reduce:scale-x-100 motion-reduce:animate-none`,
+                        `origin-start absolute inset-y-0 start-0 w-full animate-[home-featured-pagination-progress_7000ms_linear_forwards] rounded-full bg-foreground/80 motion-reduce:scale-x-100 motion-reduce:animate-none`,
                       )}
                       style={{ animationPlayState: isAutoAdvancePaused ? 'paused' : 'running' }}
                       onAnimationEnd={() => {

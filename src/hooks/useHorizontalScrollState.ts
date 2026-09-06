@@ -46,6 +46,36 @@ export function resolveHorizontalScrollMaskClass({ showLeftShadow, showRightShad
   return ''
 }
 
+function readHorizontalOverflowShadows(container: HTMLElement) {
+  const { scrollLeft, scrollWidth, clientWidth } = container
+  const maxScrollLeft = Math.max(0, scrollWidth - clientWidth)
+  if (maxScrollLeft <= 4) {
+    return { showLeftShadow: false, showRightShadow: false }
+  }
+
+  const isRtl = getComputedStyle(container).direction === 'rtl'
+
+  if (isRtl) {
+    // WebKit/Blink use negative scrollLeft in RTL; Firefox uses 0..max from the inline-start edge.
+    if (scrollLeft < 0 || Object.is(scrollLeft, -0)) {
+      return {
+        showLeftShadow: scrollLeft > -maxScrollLeft + 4,
+        showRightShadow: scrollLeft < -4,
+      }
+    }
+
+    return {
+      showLeftShadow: scrollLeft < maxScrollLeft - 4,
+      showRightShadow: scrollLeft > 4,
+    }
+  }
+
+  return {
+    showLeftShadow: scrollLeft > 4,
+    showRightShadow: scrollLeft < maxScrollLeft - 4,
+  }
+}
+
 export function useHorizontalScrollShadows<TContainer extends HTMLElement>({
   containerRef,
   onResize,
@@ -62,11 +92,9 @@ export function useHorizontalScrollShadows<TContainer extends HTMLElement>({
       return
     }
 
-    const { scrollLeft, scrollWidth, clientWidth } = container
-    const maxScrollLeft = scrollWidth - clientWidth
-
-    setShowLeftShadow(scrollLeft > 4)
-    setShowRightShadow(scrollLeft < maxScrollLeft - 4)
+    const next = readHorizontalOverflowShadows(container)
+    setShowLeftShadow(next.showLeftShadow)
+    setShowRightShadow(next.showRightShadow)
   }, [containerRef])
 
   useLayoutEffect(

@@ -328,7 +328,7 @@ export default function HeaderSearch({
           })
         }}
       >
-        <SearchIcon className="absolute top-1/2 left-4 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
+        <SearchIcon className="absolute start-4 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="text"
           ref={inputRef}
@@ -353,7 +353,7 @@ export default function HeaderSearch({
             showSearchResults()
           }}
           className={cn(
-            'h-12 w-full pr-12 pl-11 shadow-none transition-colors lg:h-10',
+            'h-12 w-full ps-11 pe-12 shadow-none transition-colors lg:h-10',
             inputBorderClass,
             inputBaseClass,
             { 'rounded-b-none': showAttachedDropdown },
@@ -367,7 +367,7 @@ export default function HeaderSearch({
           <button
             type="button"
             className={cn(
-              `absolute top-1/2 right-3 inline-flex -translate-y-1/2 items-center justify-center rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground`,
+              `absolute end-3 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground`,
             )}
             onClick={() => {
               clearSearch()
@@ -379,7 +379,7 @@ export default function HeaderSearch({
             <XIcon className="size-4" />
           </button>
         ) : (
-          <Kbd className="absolute top-1/2 right-3 hidden -translate-y-1/2 lg:inline-flex">/</Kbd>
+          <Kbd className="absolute end-3 top-1/2 hidden -translate-y-1/2 lg:inline-flex">/</Kbd>
         )}
         {showDropdown && (
           <SearchResults

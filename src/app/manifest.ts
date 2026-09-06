@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next'
 
-import { DEFAULT_LOCALE } from '@/i18n/locales'
 import { deferPublicShellPrerenderIfNeeded } from '@/lib/public-shell-rendering'
 import { resolvePwaThemeColors } from '@/lib/pwa-colors'
 import { loadRuntimeThemeState } from '@/lib/theme-settings'
@@ -16,7 +15,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     name: site.name,
     short_name: site.name.slice(0, 32),
     description: site.description,
-    start_url: `/${DEFAULT_LOCALE}`,
+    start_url: '/',
     scope: '/',
     display: 'standalone',
     background_color: lightSurface,

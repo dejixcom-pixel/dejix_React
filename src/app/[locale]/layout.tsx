@@ -17,7 +17,7 @@ import PwaServiceWorker from '@/components/PwaServiceWorker'
 import SiteStructuredData from '@/components/seo/SiteStructuredData'
 import TestModeBannerDeferred from '@/components/TestModeBannerDeferred'
 import { loadEnabledLocales } from '@/i18n/locale-settings'
-import { isRtlLocale } from '@/i18n/locales'
+import { DEFAULT_LOCALE, isRtlLocale } from '@/i18n/locales'
 import { getRootLocale } from '@/i18n/root-locale'
 import { cacheTags } from '@/lib/cache-tags'
 import { openSauceOne, vazirmatn } from '@/lib/fonts'
@@ -108,7 +108,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export async function generateStaticParams() {
-  return [{ locale: 'en' }]
+  return [{ locale: DEFAULT_LOCALE }]
 }
 
 interface LocaleDocumentProps {

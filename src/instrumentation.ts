@@ -5,6 +5,11 @@ import * as Sentry from '@sentry/nextjs'
 import { isNextNotFoundError } from '@/lib/errors/next-http-fallback'
 
 export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { assertCriticalProductionEnv } = await import('@/lib/production-env')
+    assertCriticalProductionEnv()
+  }
+
   await import('../sentry.server.config')
 }
 

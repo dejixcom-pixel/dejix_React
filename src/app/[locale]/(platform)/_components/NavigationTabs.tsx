@@ -108,7 +108,7 @@ export default function NavigationTabs() {
                 tag={tag}
                 href={getMainTagHref(tag.slug, dynamicHomeCategorySlugSet)}
                 isActive={navigationSelection.activeMainTagSlug === tag.slug}
-                tabPaddingClass={index === 0 ? 'px-2.5 pl-0' : 'px-3'}
+                tabPaddingClass={index === 0 ? 'px-2.5 ps-0' : 'px-3'}
                 containerRef={(element) => {
                   tabItemRef.current[index] = element
                 }}

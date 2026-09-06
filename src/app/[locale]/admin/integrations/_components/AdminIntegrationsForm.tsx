@@ -666,7 +666,7 @@ function AdminIntegrationsFormInner(props: AdminIntegrationsFormProps) {
           onToggle={toggleSection}
           header={
             <IntegrationHeader
-              title="Kuest Support"
+              title="DEJIX Support"
               description={t('Offer direct support from every admin page.')}
               logo="/images/logos/kuest-icon.svg"
             />

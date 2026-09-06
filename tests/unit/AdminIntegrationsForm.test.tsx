@@ -73,13 +73,13 @@ describe('adminIntegrationsForm', () => {
 
   it('reflects an updated saved support widget position', () => {
     const { rerender } = render(<AdminIntegrationsForm {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: /Kuest Support/ }))
+    fireEvent.click(screen.getByRole('button', { name: /DEJIX Support/ }))
     const positionSwitch = screen.getByRole('switch', { name: 'Widget position' })
     expect(positionSwitch).toHaveAttribute('data-checked')
 
     rerender(<AdminIntegrationsForm {...props} kuestSupportSettings={{ enabled: true, position: 'left' }} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Kuest Support/ }))
+    fireEvent.click(screen.getByRole('button', { name: /DEJIX Support/ }))
     expect(screen.getByRole('switch', { name: 'Widget position' })).toHaveAttribute('data-unchecked')
   })
 

@@ -12,7 +12,7 @@ import {
 describe('locale settings helpers', () => {
   it('normalizes enabled locales in supported order and keeps default', () => {
     const input = ['fr', 'en', 'es']
-    expect(normalizeEnabledLocales(input)).toEqual([DEFAULT_LOCALE, 'es', 'fr'])
+    expect(normalizeEnabledLocales(input)).toEqual([DEFAULT_LOCALE, 'en', 'es', 'fr'])
   })
 
   it('adds default locale when missing', () => {
@@ -20,7 +20,7 @@ describe('locale settings helpers', () => {
   })
 
   it('parses enabled locales from JSON', () => {
-    expect(parseEnabledLocales('["fr","en"]')).toEqual([DEFAULT_LOCALE, 'fr'])
+    expect(parseEnabledLocales('["fr","en"]')).toEqual([DEFAULT_LOCALE, 'en', 'fr'])
   })
 
   it('falls back to supported locales on invalid JSON', () => {

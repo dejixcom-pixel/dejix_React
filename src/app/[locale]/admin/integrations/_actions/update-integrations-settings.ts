@@ -77,7 +77,7 @@ export async function updateIntegrationsSettingsAction(
       kuestSupportPositionRaw !== 'left' &&
       kuestSupportPositionRaw !== 'right'
     ) {
-      return { error: 'Kuest Support position is invalid.' }
+      return { error: 'DEJIX Support position is invalid.' }
     }
 
     const { data: allSettings, error: settingsError } = await SettingsRepository.getSettings()
